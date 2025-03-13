@@ -49,32 +49,56 @@ def get_latest_file():
         print(f"Error reading {latest_file}: {e}")
         return None, None
 
+import os
+import pandas as pd
+import yfinance as yf
+from datetime import datetime, timedelta
+
+def get_latest_file():
+    """Find the most recent stock data file and extract the latest recorded date."""
+    files = [f for f in os.listdir() if f.startswith("stock_data_") and f.endswith(".csv")]
+    if not files:
+        return None, None  # No previous files found
+
+    files.sort(reverse=True, key=lambda x: x.split("_")[-1].split(".csv")[0])
+
+    latest_file = files[0]
+    try:
+        df = pd.read_csv(latest_file, parse_dates=["Date"])
+        latest_date = df["Date"].max()  # Get the most recent date in the data
+        return latest_file, latest_date
+    except Exception as e:
+        print(f"Error reading {latest_file}: {e}")
+        return None, None
+
 def download_data(symbols):
     """Download OHLCV data only for missing dates and append to the latest dataset."""
     today = datetime.now().strftime("%Y%m%d")
     filename = f"stock_data_{today}.csv"
 
-    # Check if today's file already exists
+    # If today's file exists, exit
     if os.path.exists(filename):
         print(f"File for today already exists: {filename}")
         return filename
 
-    # Get the most recent existing file and date
+    # Get latest available data file
     latest_file, latest_date = get_latest_file()
 
     if latest_date is None:
         print("No existing data found. Downloading full dataset from 2000...")
         start_date = "2000-01-01"
     else:
-        start_date = latest_date.strftime("%Y-%m-%d")
-        #start_date = (latest_date + timedelta(days=1)).strftime("%Y-%m-%d")
-        print(f"Latest available date: {latest_date.strftime('%Y-%m-%d')}")
-        print(f"Downloading missing data from {start_date} to today...")
+        start_date = (latest_date + timedelta(days=1)).strftime("%Y-%m-%d")
+        print(f"📅 Latest available date: {latest_date.strftime('%Y-%m-%d')}")
+        print(f"📉 Downloading missing data from {start_date} to today...")
 
     end_date = datetime.today().strftime("%Y-%m-%d")
 
-    # Fetch only the missing data
+    # Fetch missing data
     df_new = yf.download(symbols, start=start_date, end=end_date, group_by='ticker')
+
+    # Debugging: Check if data was retrieved
+    print(f"Data Downloaded: {df_new.shape[0]} rows, {df_new.shape[1]} columns")
 
     if df_new.empty:
         print("No new data retrieved.")
@@ -84,18 +108,39 @@ def download_data(symbols):
     df_new.columns = ['_'.join(col).strip() if isinstance(col, tuple) else col for col in df_new.columns]
     df_new.reset_index(inplace=True)
 
-    # Append to existing data if applicable
+    # Ensure 'Symbol' column exists
+    if len(symbols) == 1:
+        df_new["Symbol"] = symbols[0]  # Single ticker case
+    else:
+        df_new["Symbol"] = df_new.columns[1].split("_")[0]  # Extract symbol from columns
+
+    # Load existing file if available
     if latest_file:
         df_existing = pd.read_csv(latest_file, parse_dates=["Date"])
-        df_combined = pd.concat([df_existing, df_new]).drop_duplicates(subset=["Date", "Symbol"]).sort_values("Date")
+
+        # Debugging: Check column format
+        print(f"Columns in Existing Data: {df_existing.columns}")
+        print(f"Columns in New Data: {df_new.columns}")
+
+        # Ensure 'Symbol' column exists
+        if "Symbol" not in df_existing.columns:
+            df_existing["Symbol"] = df_existing.columns[1].split("_")[0]
+
+        # Merge old and new data, removing duplicates
+        df_combined = pd.concat([df_existing, df_new], ignore_index=True).drop_duplicates(subset=["Date", "Symbol"]).sort_values("Date")
     else:
         df_combined = df_new
+
+    # Debugging: Print first few rows
+    print("Combined Data Preview:")
+    print(df_combined.head())
 
     # Save updated data
     df_combined.to_csv(filename, index=False)
     print(f"Data saved correctly to {filename}")
 
     return filename
+
 
 
 def load_data_from_file(filename):
