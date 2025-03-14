@@ -32,29 +32,6 @@ def fetch_symbols():
     return list(set(fetch_sp500_symbols() + fetch_nasdaq_100_symbols()))
 
 def get_latest_file():
-    """Finds the most recent stock data file and extracts the latest recorded date."""
-    files = [f for f in os.listdir() if f.startswith("stock_data_") and f.endswith(".csv")]
-    if not files:
-        return None, None  # No previous files found
-
-    # Sort files by date in descending order (latest first)
-    files.sort(reverse=True, key=lambda x: x.split("_")[-1].split(".csv")[0])
-
-    latest_file = files[0]
-    try:
-        df = pd.read_csv(latest_file, parse_dates=["Date"])
-        latest_date = df["Date"].max()  # Get the most recent date in the data
-        return latest_file, latest_date
-    except Exception as e:
-        print(f"Error reading {latest_file}: {e}")
-        return None, None
-
-import os
-import pandas as pd
-import yfinance as yf
-from datetime import datetime, timedelta
-
-def get_latest_file():
     """Find the most recent stock data file and extract the latest recorded date."""
     files = [f for f in os.listdir() if f.startswith("stock_data_") and f.endswith(".csv")]
     if not files:
@@ -89,13 +66,18 @@ def download_data(symbols):
         start_date = "2000-01-01"
     else:
         start_date = (latest_date + timedelta(days=1)).strftime("%Y-%m-%d")
-        print(f"📅 Latest available date: {latest_date.strftime('%Y-%m-%d')}")
-        print(f"📉 Downloading missing data from {start_date} to today...")
+        print(f"Latest available date: {latest_date.strftime('%Y-%m-%d')}")
+        print(f"Downloading missing data from {start_date} to today...")
 
     end_date = datetime.today().strftime("%Y-%m-%d")
 
     # Fetch missing data
     df_new = yf.download(symbols, start=start_date, end=end_date, group_by='ticker')
+
+    # Identify failed tickers
+    failed_tickers = [ticker for ticker in symbols if ticker not in df_new.columns.get_level_values(0)]
+    if failed_tickers:
+        print(f"Failed downloads: {failed_tickers}")
 
     # Debugging: Check if data was retrieved
     print(f"Data Downloaded: {df_new.shape[0]} rows, {df_new.shape[1]} columns")
@@ -104,44 +86,57 @@ def download_data(symbols):
         print("No new data retrieved.")
         return latest_file  # Return existing latest file
 
-    # Flatten MultiIndex columns
-    df_new.columns = ['_'.join(col).strip() if isinstance(col, tuple) else col for col in df_new.columns]
+    # Convert MultiIndex into a flat DataFrame
+    if isinstance(df_new.columns, pd.MultiIndex):
+        df_new.columns = ['_'.join(col) for col in df_new.columns]  # Convert MultiIndex to single index
+
     df_new.reset_index(inplace=True)
 
-    # Ensure 'Symbol' column exists
-    if len(symbols) == 1:
-        df_new["Symbol"] = symbols[0]  # Single ticker case
-    else:
-        df_new["Symbol"] = df_new.columns[1].split("_")[0]  # Extract symbol from columns
+    # Remove columns related to failed tickers
+    for ticker in failed_tickers:
+        df_new = df_new.loc[:, ~df_new.columns.str.startswith(f"{ticker}_")]
 
     # Load existing file if available
     if latest_file:
         df_existing = pd.read_csv(latest_file, parse_dates=["Date"])
 
-        # Debugging: Check column format
-        print(f"Columns in Existing Data: {df_existing.columns}")
-        print(f"Columns in New Data: {df_new.columns}")
+        # Remove failed tickers from existing data
+        for ticker in failed_tickers:
+            df_existing = df_existing.loc[:, ~df_existing.columns.str.startswith(f"{ticker}_")]
 
-        # Ensure 'Symbol' column exists
-        if "Symbol" not in df_existing.columns:
-            df_existing["Symbol"] = df_existing.columns[1].split("_")[0]
+        # Ensure existing data does NOT have 'Symbol' column
+        if "Symbol" in df_existing.columns:
+            df_existing = df_existing.drop(columns=["Symbol"])
+
+        # Ensure new data does NOT have 'Symbol' column
+        if "Symbol" in df_new.columns:
+            df_new = df_new.drop(columns=["Symbol"])
+
+        # Ensure column order matches before merging
+        df_new = df_new[df_existing.columns]
+
+        # Show tail of the last available data before merging
+        print("\nExisting Data (Last 5 Rows):")
+        print(df_existing.tail())
+
+        # Show tail of newly downloaded data
+        print("\nNew Data (Last 5 Rows):")
+        print(df_new.tail())
 
         # Merge old and new data, removing duplicates
-        df_combined = pd.concat([df_existing, df_new], ignore_index=True).drop_duplicates(subset=["Date", "Symbol"]).sort_values("Date")
+        df_combined = pd.concat([df_existing, df_new], ignore_index=True).drop_duplicates(subset=["Date"]).sort_values("Date")
     else:
         df_combined = df_new
 
-    # Debugging: Print first few rows
-    print("Combined Data Preview:")
-    print(df_combined.head())
+    # Show tail of final merged dataset
+    print("\nCombined Data (Last 5 Rows After Merging):")
+    print(df_combined.tail())
 
     # Save updated data
     df_combined.to_csv(filename, index=False)
     print(f"Data saved correctly to {filename}")
 
     return filename
-
-
 
 def load_data_from_file(filename):
     """ Load stock data from CSV into a dictionary with each ticker as a key. """
