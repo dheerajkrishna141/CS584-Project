@@ -10,7 +10,7 @@ import holidays
 # Suppress warnings
 filterwarnings("ignore")
 
-def load_config(config_path='../Keys/config.ini'):
+def load_config(config_path='../../Keys/config.ini'):
     """ Load API configuration settings. """
     config = configparser.ConfigParser()
     config.read(config_path)
@@ -373,9 +373,9 @@ def clear_negative_cash():
     print("Order placed to bring cash balance to positive.")
 
 if __name__ == "__main__":
-    config = load_config()
-    api = init_api(config)
-    clear_negative_cash()
+    #config = load_config()
+    #api = init_api(config)
+    #clear_negative_cash()
 
     while True:
         try:
@@ -398,6 +398,8 @@ if __name__ == "__main__":
             if market_open <= now < market_close and is_weekday(now) and not is_holiday(now):
                 print("Market is open. Running the trading bot...")
                 main()
+                check_account_value_and_close_positions(api)
+                clear_negative_cash()
                 time.sleep(300)  # Wait 5 min before checking again
             else:
                 next_open = get_next_market_open(now)

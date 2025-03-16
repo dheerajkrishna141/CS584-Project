@@ -10,7 +10,6 @@ import time
 
 filterwarnings("ignore")
 
-
 def fetch_symbols():
     """ Fetches symbols for NASDAQ-100 and S&P 500 indices """
 
@@ -80,7 +79,7 @@ def download_data(symbols):
         print(f"Failed downloads: {failed_tickers}")
 
     # Debugging: Check if data was retrieved
-    print(f"Data Downloaded: {df_new.shape[0]} rows, {df_new.shape[1]} columns")
+    print(f'Data Downloaded: {df_new.shape[0]} rows, {df_new.shape[1]} columns')
 
     if df_new.empty:
         print("No new data retrieved.")
@@ -296,13 +295,5 @@ def run_code():
         print("Results saved:", df_results)
 
 
-def schedule_task():
-    schedule.every().day.at("21:25").do(run_code)
-    while True:
-        schedule.run_pending()
-        time.sleep(60)
-
-
 if __name__ == "__main__":
-    # schedule_task()
     run_code()
