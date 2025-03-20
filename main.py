@@ -102,15 +102,31 @@ def run_strategy(api, symbol, last_signal, funds_per_stock):
             else:
                 print(f"Not enough funds to buy {symbol}.")
 
+
         elif last_signal == 'Sell':
-            if position_qty > 0:  # Sell existing position
+
+            if position_qty > 0:  # Sell existing long position
+
                 print(f"Selling {position_qty} shares of {symbol}.")
+
                 execute_trade(api, symbol, position_qty, 'sell')
+
+            elif position_qty < 0:  # Cover an existing short position
+
+                print(f"Covering {abs(position_qty)} shares of {symbol}.")
+
+                execute_trade(api, symbol, abs(position_qty), 'buy')  # Buy to cover
+
             elif max_qty > 0:  # Short Sell new position
+
                 print(f"Short Selling {max_qty} shares of {symbol}.")
+
                 execute_trade(api, symbol, max_qty, 'sell')
+
             else:
+
                 print(f"Not enough buying power to short {symbol}.")
+
 
         else:
             print(f"No trade executed for {symbol}. Signal: {last_signal}, Position: {position_qty}")
@@ -192,12 +208,12 @@ def check_account_value_and_close_positions(api):
 
 
 def main():
-    config = load_config()
-    api = init_api(config)
+    # config = load_config()
+    # api = init_api(config)
     data = fetch_historical_data()
-    total_cash = float(api.get_account().cash)
+    cash_available = float(api.get_account().cash)
     buying_power = float(api.get_account().buying_power)
-    print(f"Total Cash Available for Trading: ${total_cash:.2f}")
+    print(f"Total Cash Available for Trading: ${cash_available:.2f}")
 
     # Check if account value exceeds $100,000 and stop if necessary
     if check_account_value_and_close_positions(api):
@@ -237,19 +253,23 @@ def main():
         print(f"Executing sell orders for {len(sell_tickers)} tickers...")
 
         for symbol in sell_tickers:
-            if symbol in tickers_in_portfolio and tickers_in_portfolio[symbol] > 0:
-                run_strategy(api, symbol, "Sell", 0)  # No funds needed for sell
+            if symbol in tickers_in_portfolio and tickers_in_portfolio[symbol] != 0:
+                run_strategy(api, symbol, "Sell", 0)  # No funds needed to sell existing positions
+
+            # Open a new short position using **buying power**
             else:
-                print(f"Skipping {symbol}: Not in portfolio or already fully sold.")
+                allocated_short_funds = buying_power * 0.1  # Use 10% of buying power per short trade
+                print(f" {symbol} not in portfolio. Shorting using margin: ${allocated_short_funds:.2f}")
+                run_strategy(api, symbol, "Sell", allocated_short_funds)
 
     #  **Process buy orders only if buying power is available**
-    if buying_power > 0 and buy_tickers:
+    if cash_available > 0 and buy_tickers:
         remaining_tickers = buy_tickers - tickers_in_portfolio.keys()  # Only buy new stocks
-        print(f"Buying Power Available: ${buying_power:.2f}")
+        print(f"Cash Available: ${cash_available:.2f}")
         print(f"Potential New Buys: {len(remaining_tickers)}")
 
         if remaining_tickers:
-            funds_per_stock = abs(buying_power * 0.9 / len(remaining_tickers))  # Allocate funds per new stock
+            funds_per_stock = abs(cash_available * 0.9 / len(remaining_tickers))  # Allocate funds per new stock
             print(f"Allocated Funds Per Stock: ${funds_per_stock:.2f}")
 
             for symbol in remaining_tickers:
@@ -391,15 +411,12 @@ if __name__ == "__main__":
             config = load_config()
             api = init_api(config)
 
-            # Check account value before running the bot
-            #if check_account_value_and_close_positions(api):
-            #    break  # Stop execution
-
             if market_open <= now < market_close and is_weekday(now) and not is_holiday(now):
                 print("Market is open. Running the trading bot...")
                 main()
-                check_account_value_and_close_positions(api)
-                clear_negative_cash()
+                if now >= market_close - datetime.timedelta(minutes=5):
+                    print("\nClosing negative cash positions before market close (3:55 PM ET)...")
+                    clear_negative_cash()
                 time.sleep(300)  # Wait 5 min before checking again
             else:
                 next_open = get_next_market_open(now)
