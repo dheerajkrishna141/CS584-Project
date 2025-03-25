@@ -111,8 +111,14 @@ def download_data(symbols):
         if "Symbol" in df_new.columns:
             df_new = df_new.drop(columns=["Symbol"])
 
-        # Ensure column order matches before merging
-        df_new = df_new[df_existing.columns]
+        # Align new data columns with existing data columns safely
+        missing_columns = [col for col in df_existing.columns if col not in df_new.columns]
+        if missing_columns:
+            print(f"Skipping {len(missing_columns)} columns not found in new data: {missing_columns[:10]}")
+
+        common_columns = [col for col in df_existing.columns if col in df_new.columns]
+        df_new = df_new[common_columns]
+        df_existing = df_existing[common_columns]
 
         # Show tail of the last available data before merging
         print("\nExisting Data (Last 5 Rows):")
@@ -292,8 +298,13 @@ def run_code():
         optimizer = Optimizer(symbols, data)
         df_results = optimizer.find_best_sma()
         df_results.to_csv("optimized_results.csv", index=False)
-        print("Results saved:", df_results)
 
+        # Save to date-stamped file (e.g., optimized_results_032525.csv)
+        today_str = datetime.now().strftime("%m%d%y")
+        dated_filename = f"optimized_results_{today_str}.csv"
+        df_results.to_csv(dated_filename, index=False)
+
+        print(f"Results saved to: optimized_results.csv and {dated_filename}")
 
 if __name__ == "__main__":
     run_code()
