@@ -1,12 +1,13 @@
+import schedule
 import yfinance as yf
 import pandas as pd
 import numpy as np
 from warnings import filterwarnings
 import requests
-from datetime import datetime,timedelta
-import os
-import schedule
+from datetime import datetime, timedelta
 import time
+import os
+import pytz
 
 filterwarnings("ignore")
 
@@ -306,5 +307,32 @@ def run_code():
 
         print(f"Results saved to: optimized_results.csv and {dated_filename}")
 
+def is_weekday(date):
+    return date.weekday() < 5
+
+def is_holiday(date):
+    try:
+        import holidays
+        us_holidays = holidays.US(years=date.year)
+        return date in us_holidays
+    except ImportError:
+        return False  # skip if holidays lib not available
+
+def job():
+    ny_tz = pytz.timezone("America/New_York")
+    now = datetime.now(ny_tz)
+    if is_weekday(now) and not is_holiday(now):
+        print(f"\n📅 Running job at: {now.strftime('%Y-%m-%d %H:%M:%S %Z')}")
+        run_code()
+    else:
+        print("📴 Market closed today (weekend/holiday). Skipping run.")
+
 if __name__ == "__main__":
-    run_code()
+    # Schedule job for 30 minutes before NYSE market open (9:00 AM ET)
+    schedule.every().day.at("09:00").do(job)
+
+    print("📅 Scheduler started. Waiting for 9:00 AM ET every weekday...")
+    while True:
+        schedule.run_pending()
+        time.sleep(30)
+

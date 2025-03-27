@@ -58,12 +58,13 @@ def execute_trade(api, symbol, qty, side):
         print(f"API Response: {e.response.content if hasattr(e, 'response') else 'No response'}")
 
 def run_strategy(api, symbol, last_signal, funds_per_stock):
-    """ Run strategy for a given symbol based on last recorded signal using the latest market price. """
+    """Run strategy for a given symbol based on last recorded signal."""
     try:
         if has_pending_orders(api, symbol):
-            print(f"Skipping {symbol} due to pending orders.")
+            print(f"Skipping {symbol}: pending orders detected.")
             return
 
+        # Get current position
         try:
             position = api.get_position(symbol)
             position_qty = int(position.qty)
@@ -74,39 +75,24 @@ def run_strategy(api, symbol, last_signal, funds_per_stock):
                 print(f"Error retrieving position for {symbol}: {error}")
                 return
 
-        latest_quote = api.get_latest_quote(symbol)
-        current_price = latest_quote.bp or latest_quote.ap or 0
-
-        # Get updated funds
+        # Get quote and account info
+        quote = api.get_latest_quote(symbol)
+        current_price = quote.bp or quote.ap or 0
         account = api.get_account()
-        cash_available = float(account.cash)
+        cash = float(account.cash)
         buying_power = float(account.buying_power)
 
-        print(f"{symbol}: Price = {current_price:.2f}, Position = {position_qty}, Signal = {last_signal}, Cash = ${cash_available:.2f}, BP = ${buying_power:.2f}")
+        print(f"{symbol}: Price=${current_price:.2f}, Pos={position_qty}, Signal={last_signal}, Cash=${cash:.2f}, BP=${buying_power:.2f}")
 
         if current_price == 0:
-            print(f"No valid price for {symbol}, skipping trade.")
+            print(f"Skipping {symbol}: No valid market price.")
             return
 
-        if last_signal == 'Buy':
-            adjusted_funds = min(funds_per_stock, cash_available)
-        elif last_signal == 'Sell':
-            adjusted_funds = min(funds_per_stock, buying_power)
-        else:
-            print(f"Unknown signal type: {last_signal}. Skipping.")
-            return
-
-        max_qty = int(adjusted_funds / current_price)
-
-        if max_qty < 1:
-            print(f"Skipping {symbol}: Not enough funds to trade even 1 share (cost per share: ${current_price:.2f}).")
-            return
-
+        # Helper: try placing order, retry on insufficient BP
         def try_order(qty, side):
-            """Attempt to submit order, retrying with smaller quantity on failure."""
             while qty >= 1:
                 try:
-                    print(f"{side.capitalize()}ing {qty} shares of {symbol}.")
+                    print(f"{side.capitalize()}ing {qty} shares of {symbol}...")
                     api.submit_order(
                         symbol=symbol,
                         qty=qty,
@@ -118,33 +104,49 @@ def run_strategy(api, symbol, last_signal, funds_per_stock):
                     return True
                 except APIError as e:
                     if "insufficient buying power" in str(e):
-                        print(f"Insufficient buying power for {qty} shares of {symbol}, retrying with fewer shares...")
+                        print(f"Insufficient buying power for {qty} shares of {symbol}, retrying with fewer...")
                         qty = qty // 2
+                        time.sleep(1)
                     else:
-                        print(f"API Error for {symbol}: {e}")
+                        print(f"API error for {symbol}: {e}")
                         return False
-            print(f"Unable to trade {symbol}: Quantity too small after retries.")
+            print(f"Unable to place order for {symbol}: quantity too small after retries.")
             return False
 
+        # === BUY LOGIC ===
         if last_signal == 'Buy':
             if position_qty < 0:
-                print(f"Covering short position of {abs(position_qty)} shares.")
+                print(f"Covering short position: {abs(position_qty)} shares of {symbol}")
                 try_order(abs(position_qty), 'buy')
             else:
-                try_order(max_qty, 'buy')
+                adjusted_funds = min(funds_per_stock, cash)
+                max_qty = int(adjusted_funds / current_price)
+                if max_qty < 1:
+                    print(f"Skipping {symbol}: Not enough funds to buy even 1 share.")
+                else:
+                    try_order(max_qty, 'buy')
 
+        # === SELL LOGIC ===
         elif last_signal == 'Sell':
             if position_qty > 0:
-                print(f"Selling long position of {position_qty} shares.")
+                print(f"Selling long position: {position_qty} shares of {symbol}")
                 try_order(position_qty, 'sell')
-            elif position_qty < 0:
-                print(f"Covering short position of {abs(position_qty)} shares.")
-                try_order(abs(position_qty), 'buy')
+            elif position_qty == 0:
+                # Initiate new short
+                max_qty = int(buying_power / current_price)
+                if max_qty < 1:
+                    print(f"Skipping {symbol}: Not enough buying power to short even 1 share.")
+                else:
+                    try_order(max_qty, 'sell')
             else:
-                try_order(max_qty, 'sell')
+                # Already short – do nothing
+                print(f"Holding existing short position in {symbol}.")
+
+        else:
+            print(f"Unknown signal type '{last_signal}' for {symbol}.")
 
     except Exception as e:
-        print(f"Error processing {symbol}: {e}")
+        print(f"Error running strategy for {symbol}: {e}")
 
 def is_weekday(date):
     """Check if the date is a weekday."""
@@ -270,8 +272,9 @@ def main():
 
             # Open a new short position using **buying power**
             else:
-                allocated_short_funds = buying_power * 0.1  # Use 10% of buying power per short trade
-                print(f" {symbol} not in portfolio. Shorting using margin: ${allocated_short_funds:.2f}")
+                # allocated_short_funds = buying_power * 0.1  # Use 10% of buying power per short trade
+                # print(f" {symbol} not in portfolio. Shorting using margin: ${allocated_short_funds:.2f}")
+                allocated_short_funds = 0
                 run_strategy(api, symbol, "Sell", allocated_short_funds)
 
     #  **Process buy orders only if buying power is available**
@@ -281,7 +284,7 @@ def main():
         print(f"Potential New Buys: {len(remaining_tickers)}")
 
         if remaining_tickers:
-            funds_per_stock = abs(cash_available * 0.9 / len(remaining_tickers))  # Allocate funds per new stock
+            funds_per_stock = abs(buying_power * 0.9 / len(remaining_tickers))  # Allocate funds per new stock
             print(f"Allocated Funds Per Stock: ${funds_per_stock:.2f}")
 
             for symbol in remaining_tickers:
@@ -404,6 +407,72 @@ def clear_negative_cash():
 
     print("Order placed to bring cash balance to positive.")
 
+def close_profitable_shorts_before_close():
+    """
+    At 3:55 PM, close only those short positions that are currently profitable.
+    """
+    try:
+        positions = api.list_positions()
+        short_positions = [pos for pos in positions if int(pos.qty) < 0]
+
+        profitable_shorts = [
+            pos for pos in short_positions if float(pos.unrealized_pl) > 0
+        ]
+
+        if not profitable_shorts:
+            print("No profitable short positions to cover.")
+            return
+
+        print(f"📈 Found {len(profitable_shorts)} profitable shorts. Covering them now...")
+
+        for pos in profitable_shorts:
+            symbol = pos.symbol
+            qty = abs(int(pos.qty))
+            print(f"✅ Covering profitable short: {symbol} ({qty} shares) | P/L: ${float(pos.unrealized_pl):.2f}")
+
+            api.submit_order(
+                symbol=symbol,
+                qty=qty,
+                side='buy',
+                type='market',
+                time_in_force='gtc'
+            )
+
+    except Exception as e:
+        print(f"Error covering profitable shorts: {e}")
+
+def close_profitable_positions(api):
+    """
+    Closes all long or short positions with a positive unrealized profit.
+    """
+    try:
+        positions = api.list_positions()
+        profitable_positions = []
+
+        for pos in positions:
+            unrealized_pl = float(pos.unrealized_pl)
+            qty = int(pos.qty)
+
+            if unrealized_pl > 0 and qty != 0:
+                profitable_positions.append((pos.symbol, qty, pos.side))
+
+        if not profitable_positions:
+            print("No profitable positions to close.")
+            return
+
+        print(f"Found {len(profitable_positions)} profitable positions. Closing them now...")
+
+        for symbol, qty, side in profitable_positions:
+            print(f"Closing profitable position: {symbol} ({qty} shares, {side})")
+            try:
+                api.close_position(symbol)
+                print(f"✅ Closed {symbol}")
+            except APIError as e:
+                print(f"Failed to close {symbol}: {e}")
+
+    except Exception as e:
+        print(f"Error while closing profitable positions: {e}")
+
 if __name__ == "__main__":
     #config = load_config()
     #api = init_api(config)
@@ -427,6 +496,8 @@ if __name__ == "__main__":
                 print("Market is open. Running the trading bot...")
                 main()
                 if now >= market_close - datetime.timedelta(minutes=5):
+                    print("\n⏱️ 3:55 PM ET: Closing profitable positions and restoring cash...")
+                    close_profitable_positions(api)
                     print("\nClosing negative cash positions before market close (3:55 PM ET)...")
                     clear_negative_cash()
                 time.sleep(300)  # Wait 5 min before checking again
