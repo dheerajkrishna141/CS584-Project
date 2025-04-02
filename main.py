@@ -2,6 +2,7 @@ import datetime
 import pandas as pd
 import pytz
 import time
+import os
 from warnings import filterwarnings
 import configparser
 from alpaca_trade_api.rest import REST, APIError
@@ -34,15 +35,14 @@ def fetch_historical_data(file_path="optimized_results.csv"):
         return pd.DataFrame()
 
 
-def has_pending_orders(api, symbol):
-    """ Check if there are pending orders for the symbol. """
+def has_pending_orders(api, symbol, side=None):
+    """ Check if there are pending orders for the symbol, optionally filtered by side. """
     open_orders = api.list_orders(status='open')
-    symbol_orders = [order for order in open_orders if order.symbol == symbol]
-
-    if len(symbol_orders) > 0:
-        print(f"Open orders detected for {symbol}: {len(symbol_orders)} orders pending.")
-
-    return len(symbol_orders) > 0
+    for order in open_orders:
+        if order.symbol == symbol and (side is None or order.side == side):
+            print(f"Open order detected for {symbol} ({order.side.upper()})")
+            return True
+    return False
 
 def execute_trade(api, symbol, qty, side):
     """ Execute a trade order. """
@@ -57,82 +57,14 @@ def execute_trade(api, symbol, qty, side):
         print(f"API Error on {side} order for {symbol}: {e}")
         print(f"API Response: {e.response.content if hasattr(e, 'response') else 'No response'}")
 
-def run_strategy(api, symbol, last_signal, funds_per_stock):
-    """ Run strategy for a given symbol based on last recorded signal using the latest market price. """
-    try:
-        if has_pending_orders(api, symbol):
-            print(f"Skipping {symbol} due to pending orders.")
-            return
+def log_limit_adjustment(symbol, old_signal, new_signal, reason):
+    log_dir = "logs"
+    os.makedirs(log_dir, exist_ok=True)
+    log_file = os.path.join(log_dir, "limit_adjustment_log.txt")
 
-        try:
-            position = api.get_position(symbol)
-            position_qty = int(position.qty)
-        except APIError as error:
-            if 'position does not exist' in str(error):
-                position_qty = 0
-            else:
-                print(f"Error retrieving position for {symbol}: {error}")
-                return
-
-        latest_quote = api.get_latest_quote(symbol)
-        current_price = latest_quote.bp if latest_quote.bp else latest_quote.ap if latest_quote.ap else 0  # Fallback price
-
-        # Fetch buying power
-        account = api.get_account()
-        buying_power = float(account.buying_power)
-
-        print(f"{symbol}: Price = {current_price}, Position = {position_qty}, Signal = {last_signal}, Buying Power = ${buying_power:.2f}")
-
-        if current_price == 0:
-            print(f"No valid price for {symbol}, skipping trade.")
-            return
-
-        # Ensure funds_per_stock does not exceed actual buying power
-        adjusted_funds = min(funds_per_stock, buying_power)
-        max_qty = int(adjusted_funds / current_price)  # Calculate maximum affordable shares
-
-        # **NEW LOGIC: Allow trading even if already in portfolio**
-        if last_signal == 'Buy':
-            if position_qty < 0:  # Cover a short position
-                print(f"Covering {abs(position_qty)} shares of {symbol}.")
-                execute_trade(api, symbol, abs(position_qty), 'buy')
-            elif max_qty > 0:
-                print(f"Buying {max_qty} shares of {symbol}.")
-                execute_trade(api, symbol, max_qty, 'buy')
-            else:
-                print(f"Not enough funds to buy {symbol}.")
-
-
-        elif last_signal == 'Sell':
-
-            if position_qty > 0:  # Sell existing long position
-
-                print(f"Selling {position_qty} shares of {symbol}.")
-
-                execute_trade(api, symbol, position_qty, 'sell')
-
-            elif position_qty < 0:  # Cover an existing short position
-
-                print(f"Covering {abs(position_qty)} shares of {symbol}.")
-
-                execute_trade(api, symbol, abs(position_qty), 'buy')  # Buy to cover
-
-            elif max_qty > 0:  # Short Sell new position
-
-                print(f"Short Selling {max_qty} shares of {symbol}.")
-
-                execute_trade(api, symbol, max_qty, 'sell')
-
-            else:
-
-                print(f"Not enough buying power to short {symbol}.")
-
-
-        else:
-            print(f"No trade executed for {symbol}. Signal: {last_signal}, Position: {position_qty}")
-
-    except Exception as e:
-        print(f"Error processing {symbol}: {e}")
+    with open(log_file, "a") as f:
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        f.write(f"{timestamp} - {symbol} - Signal changed: {old_signal} → {new_signal} - {reason}\n")
 
 def is_weekday(date):
     """Check if the date is a weekday."""
@@ -207,86 +139,7 @@ def check_account_value_and_close_positions(api):
         return False  # Continue execution
 
 
-def main():
-    # config = load_config()
-    # api = init_api(config)
-    data = fetch_historical_data()
-    cash_available = float(api.get_account().cash)
-    buying_power = float(api.get_account().buying_power)
-    print(f"Total Cash Available for Trading: ${cash_available:.2f}")
 
-    # Check if account value exceeds $100,000 and stop if necessary
-    if check_account_value_and_close_positions(api):
-        exit(0)  # Stop execution
-
-    if data.empty:
-        print("No trading data available.")
-        return
-
-    # Get current open positions
-    positions = api.list_positions()
-    tickers_in_portfolio = {position.symbol: int(position.qty) for position in positions}  # Store quantity too
-
-    # Get tickers from the CSV data
-    tickers_in_data = set(data['Symbol'].unique())  # Unique tickers from dataset
-
-    print(f"Total number of Tickers in Data: {len(tickers_in_data)}")
-    print(f"Current Open Positions: {len(tickers_in_portfolio)}")
-
-    # Separate tickers for buy and sell signals
-    buy_tickers = set()
-    sell_tickers = set()
-
-    for index, row in data.iterrows():
-        symbol = row['Symbol']
-        last_signal = row['Last_Signal']
-
-        if last_signal == "Buy":
-            buy_tickers.add(symbol)
-        elif last_signal == "Sell":
-            sell_tickers.add(symbol)
-
-    print(f"Buy Signals: {len(buy_tickers)} | Sell Signals: {len(sell_tickers)}")
-
-    #  **Process only stocks that are currently held**
-    if sell_tickers:
-        print(f"Executing sell orders for {len(sell_tickers)} tickers...")
-
-        for symbol in sell_tickers:
-            if symbol in tickers_in_portfolio and tickers_in_portfolio[symbol] != 0:
-                run_strategy(api, symbol, "Sell", 0)  # No funds needed to sell existing positions
-
-            # Open a new short position using **buying power**
-            else:
-                allocated_short_funds = buying_power * 0.1  # Use 10% of buying power per short trade
-                print(f" {symbol} not in portfolio. Shorting using margin: ${allocated_short_funds:.2f}")
-                run_strategy(api, symbol, "Sell", allocated_short_funds)
-
-    #  **Process buy orders only if buying power is available**
-    if cash_available > 0 and buy_tickers:
-        remaining_tickers = buy_tickers - tickers_in_portfolio.keys()  # Only buy new stocks
-        print(f"Cash Available: ${cash_available:.2f}")
-        print(f"Potential New Buys: {len(remaining_tickers)}")
-
-        if remaining_tickers:
-            funds_per_stock = abs(cash_available * 0.9 / len(remaining_tickers))  # Allocate funds per new stock
-            print(f"Allocated Funds Per Stock: ${funds_per_stock:.2f}")
-
-            for symbol in remaining_tickers:
-                run_strategy(api, symbol, "Buy", funds_per_stock)
-        else:
-            print("No new tickers to buy.")
-    else:
-        print("Insufficient buying power for new purchases. Skipping buy orders.")
-
-    # Print daily account summary
-    account = api.get_account()
-    equity = float(account.equity)
-    last_equity = float(account.last_equity)
-    daily_change = round((equity - last_equity), 2)
-
-    print(f"\nCurrent Time (HH:MM): {datetime.datetime.now().strftime('%H:%M')}")
-    print(f"Daily Change: ${daily_change:.2f}")
 
 def close_all_short_positions():
     """
@@ -392,11 +245,380 @@ def clear_negative_cash():
 
     print("Order placed to bring cash balance to positive.")
 
-if __name__ == "__main__":
-    #config = load_config()
-    #api = init_api(config)
-    #clear_negative_cash()
+def close_profitable_shorts_before_close():
+    """
+    At 3:55 PM, close only those short positions that are currently profitable.
+    """
+    try:
+        positions = api.list_positions()
+        short_positions = [pos for pos in positions if int(pos.qty) < 0]
 
+        profitable_shorts = [
+            pos for pos in short_positions if float(pos.unrealized_pl) > 0
+        ]
+
+        if not profitable_shorts:
+            print("No profitable short positions to cover.")
+            return
+
+        print(f"📈 Found {len(profitable_shorts)} profitable shorts. Covering them now...")
+
+        for pos in profitable_shorts:
+            symbol = pos.symbol
+            qty = abs(int(pos.qty))
+            print(f"✅ Covering profitable short: {symbol} ({qty} shares) | P/L: ${float(pos.unrealized_pl):.2f}")
+
+            api.submit_order(
+                symbol=symbol,
+                qty=qty,
+                side='buy',
+                type='market',
+                time_in_force='gtc'
+            )
+
+    except Exception as e:
+        print(f"Error covering profitable shorts: {e}")
+
+def close_profitable_positions(api):
+    """
+    Closes all long or short positions with a positive unrealized profit.
+    """
+    try:
+        positions = api.list_positions()
+        profitable_positions = []
+
+        for pos in positions:
+            unrealized_pl = float(pos.unrealized_pl)
+            qty = int(pos.qty)
+
+            if unrealized_pl > 0 and qty != 0:
+                profitable_positions.append((pos.symbol, qty, pos.side))
+
+        if not profitable_positions:
+            print("No profitable positions to close.")
+            return
+
+        print(f"Found {len(profitable_positions)} profitable positions. Closing them now...")
+
+        for symbol, qty, side in profitable_positions:
+            print(f"Closing profitable position: {symbol} ({qty} shares, {side})")
+            try:
+                api.close_position(symbol)
+                print(f"✅ Closed {symbol}")
+            except APIError as e:
+                print(f"Failed to close {symbol}: {e}")
+
+    except Exception as e:
+        print(f"Error while closing profitable positions: {e}")
+
+# Global tracker for original limit prices (symbol -> original limit price)
+original_limit_prices = {}
+
+
+def submit_limit_order(api, symbol, qty, side, current_price):
+    """
+    Submit a limit order with 5% offset from market price.
+    Buy -> 5% below market price
+    Sell -> 5% above market price
+    """
+    try:
+        offset = 0.02
+        limit_price = round(
+            current_price * (1 - offset) if side == 'buy' else current_price * (1 + offset), 2
+        )
+
+        # Check for existing open orders to prevent duplicates
+        open_orders = api.list_orders(status='open')
+        for order in open_orders:
+            if order.symbol == symbol and order.side == side:
+                print(f"Skipping new order: Existing {side.upper()} order found for {symbol}")
+                return
+
+        api.submit_order(
+            symbol=symbol,
+            qty=qty,
+            side=side,
+            type='limit',
+            time_in_force='gtc',
+            limit_price=limit_price
+        )
+
+        print(f"Placed {side.upper()} LIMIT order: {qty} shares of {symbol} @ ${limit_price:.2f}")
+        original_limit_prices[symbol] = limit_price
+
+    except APIError as e:
+        print(f"API Error placing {side.upper()} order for {symbol}: {e}")
+
+
+
+
+
+def handle_signal_change(api, symbol, new_signal):
+    open_orders = api.list_orders(status='open', symbols=[symbol])
+
+    if not open_orders:
+        return False  # No pending orders to check
+
+    for order in open_orders:
+        existing_signal = 'Buy' if order.side == 'buy' else 'Sell'
+
+        if existing_signal.lower() != new_signal.lower():
+            print(f"Signal changed for {symbol}: {existing_signal} → {new_signal}")
+
+            # Cancel existing order
+            try:
+                api.cancel_order(order.id)
+                print(f"Cancelled existing limit order for {symbol}.")
+                log_limit_adjustment(symbol, existing_signal, new_signal, "Signal changed - order cancelled")
+            except Exception as e:
+                print(f"Failed to cancel order for {symbol}: {e}")
+
+            return True  # Signal changed and order cancelled
+
+    return False  # Signal was same as pending order
+
+def adjust_limit_orders(api):
+    """
+    Adjust open limit orders once, 5 minutes before market close, if market price
+    has deviated more than 5% from the original limit price.
+    """
+    log_entries = []
+    now_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+    open_orders = api.list_orders(status='open')
+    for order in open_orders:
+        symbol = order.symbol
+        side = order.side
+        qty = int(order.qty)
+
+        if symbol not in original_limit_prices:
+            continue
+
+        original_price = float(original_limit_prices[symbol])
+
+        try:
+            quote = api.get_latest_quote(symbol)
+            market_price = float(quote.bp or quote.ap or 0)
+            if market_price == 0:
+                continue
+
+            deviation = abs(original_price - market_price) / market_price
+            if deviation >= 0.05:
+                # Cancel and replace
+                api.cancel_order(order.id)
+                time.sleep(1)
+
+                new_limit = round(
+                    market_price * (1 - 0.02) if side == 'buy' else market_price * (1 + 0.02), 2
+                )
+
+                api.submit_order(
+                    symbol=symbol,
+                    qty=qty,
+                    side=side,
+                    type='limit',
+                    time_in_force='gtc',
+                    limit_price=new_limit
+                )
+
+                original_limit_prices[symbol] = new_limit
+
+                log_line = (
+                    f"[{now_str}] Adjusted {side.upper()} LIMIT for {symbol} from ${original_price:.2f} "
+                    f"to ${new_limit:.2f} (Market: ${market_price:.2f})"
+                )
+                print(log_line)
+                log_entries.append(log_line)
+
+        except Exception as e:
+            print(f"Error adjusting order for {symbol}: {e}")
+
+    if log_entries:
+        with open("limit_adjustment_log.txt", "a") as f:
+            for line in log_entries:
+                f.write(line + "\n")
+
+def run_strategy(api, symbol, last_signal, funds_per_stock):
+    """Run strategy for a given symbol based on last recorded signal."""
+    try:
+        side = 'buy' if last_signal.lower() == 'buy' else 'sell'
+
+        if has_pending_orders(api, symbol, side):
+            print(f"{symbol}: Skipping {side.upper()} — existing {side.upper()} order is pending.")
+            return
+
+        # Get position and price info
+        try:
+            position = api.get_position(symbol)
+            position_qty = int(position.qty)
+        except APIError as error:
+            if 'position does not exist' in str(error).lower():
+                position_qty = 0
+            else:
+                print(f"Error retrieving position for {symbol}: {error}")
+                return
+
+        quote = api.get_latest_quote(symbol)
+        current_price = quote.bp or quote.ap or 0
+        account = api.get_account()
+        cash = float(account.cash)
+        buying_power = float(account.buying_power)
+
+        print(f"{symbol}: Price=${current_price:.2f}, Pos={position_qty}, Signal={last_signal}, Cash=${cash:.2f}, BP=${buying_power:.2f}")
+
+        if current_price == 0:
+            print(f"Skipping {symbol}: No valid price.")
+            return
+
+        # Determine order side, limit price, and quantity
+        if last_signal == 'Buy':
+            limit_price = round(current_price * 0.98, 2)
+            if position_qty < 0:
+                print(f"Covering short position: {abs(position_qty)} shares of {symbol}")
+                qty = abs(position_qty)
+            else:
+                adjusted_funds = min(funds_per_stock, cash)
+                qty = int(adjusted_funds / limit_price)
+
+        elif last_signal == 'Sell':
+            limit_price = round(current_price * 1.02, 2)
+            if position_qty > 0:
+                print(f"Selling long position: {position_qty} shares of {symbol}")
+                qty = position_qty
+            elif position_qty == 0:
+                adjusted_funds = min(funds_per_stock, buying_power)
+                qty = int(adjusted_funds / limit_price)
+            else:
+                print(f"{symbol}: Already shorted. Holding.")
+                return
+        else:
+            print(f"Unknown signal type '{last_signal}' for {symbol}.")
+            return
+
+        if qty < 1:
+            print(f"Skipping {symbol}: Quantity too small.")
+            return
+
+        print(f"Placing {side.upper()} LIMIT order for {symbol}: {qty} shares @ ${limit_price:.2f} (60-day GTC)")
+
+        api.submit_order(
+            symbol=symbol,
+            qty=qty,
+            side=side,
+            type='limit',
+            limit_price=limit_price,
+            time_in_force='gtc'
+        )
+
+    except Exception as e:
+        print(f"Error running strategy for {symbol}: {e}")
+
+
+
+def main():
+    data = fetch_historical_data()
+    account = api.get_account()
+    cash_available = float(account.cash)
+    buying_power = float(account.buying_power)
+
+    print(f"Total Cash Available for Trading: ${cash_available:.2f}")
+    print(f"Total Buying Power: ${buying_power:.2f}")
+
+    # Stop if account too large
+    #if check_account_value_and_close_positions(api):
+    #    exit(0)
+
+    if data.empty:
+        print("No trading data available.")
+        return
+
+    # Get current positions
+    positions = api.list_positions()
+    tickers_in_portfolio = {}
+    for position in positions:
+        tickers_in_portfolio[position.symbol] = int(position.qty)
+
+    tickers_in_data = set(data['Symbol'].unique())
+    print(f"Total Tickers in Data: {len(tickers_in_data)}")
+    print(f"Open Positions: {len(tickers_in_portfolio)}")
+
+    # Categorize signals
+    buy_tickers = set()
+    sell_tickers = set()
+
+    for _, row in data.iterrows():
+        symbol = row['Symbol']
+        signal = row['Last_Signal']
+        if signal == "Buy":
+            buy_tickers.add(symbol)
+        elif signal == "Sell":
+            sell_tickers.add(symbol)
+
+    print(f"Buy Signals: {len(buy_tickers)} | Sell Signals: {len(sell_tickers)}")
+
+    # ---- SELL & SHORT ----
+    if sell_tickers:
+        print(f"\nProcessing {len(sell_tickers)} SELL/SHORT signals...")
+
+        new_shorts = sell_tickers - set(tickers_in_portfolio.keys())
+        num_new_shorts = len(new_shorts)
+        per_short_funds = (buying_power * 0.9 / num_new_shorts) if num_new_shorts > 0 else 0
+
+        for symbol in sell_tickers:
+            if symbol in tickers_in_portfolio and tickers_in_portfolio[symbol] != 0:
+                run_strategy(api, symbol, "Sell", 0)  # Just liquidate held positions
+            else:
+                if has_pending_orders(api, symbol):
+                    print(f"Skipping {symbol}: Already has a pending order.")
+                    continue
+
+                try:
+                    quote = api.get_latest_quote(symbol)
+                    current_price = quote.bp or quote.ap or 0
+                    if current_price == 0:
+                        print(f"Skipping {symbol}: No valid market price.")
+                        continue
+
+                    limit_price = round(current_price * 1.05, 2)  # for shorting
+                    if per_short_funds < limit_price:
+                        print(f"Skipping {symbol}: Not enough buying power to short even 1 share at ${limit_price:.2f}")
+                        continue
+
+                    print(f"{symbol} not in portfolio. Allocating ${per_short_funds:.2f} for shorting.")
+                    run_strategy(api, symbol, "Sell", per_short_funds)
+
+                except Exception as e:
+                    print(f"Error preparing short for {symbol}: {e}")
+
+    # ---- BUY ----
+    if cash_available > 0 and buy_tickers:
+        new_buys = buy_tickers - tickers_in_portfolio.keys()
+        print(f"\nProcessing {len(new_buys)} BUY signals (new)...")
+
+        # Use the actual spendable amount (cash + valid buying power)
+        effective_buying_power = min(cash_available, buying_power)
+
+        if effective_buying_power < 100:  # Minimum needed to attempt 1 or 2 shares
+            print(f"Skipping buys: Effective buying power is too low (${effective_buying_power:.2f})")
+        elif new_buys:
+            per_buy_funds = effective_buying_power * 0.9 / len(new_buys)
+            print(f"Allocated Funds Per BUY Stock: ${per_buy_funds:.2f}")
+            for symbol in new_buys:
+                run_strategy(api, symbol, "Buy", per_buy_funds)
+        else:
+            print("No new tickers to buy.")
+    else:
+        print("Insufficient cash for buys. Skipping new buy orders.")
+
+    # ---- Daily Summary ----
+    equity = float(account.equity)
+    last_equity = float(account.last_equity)
+    delta = round(equity - last_equity, 2)
+
+    print(f"\nCurrent Time: {datetime.datetime.now().strftime('%H:%M')}")
+    print(f"Daily P/L Change: ${delta:.2f}")
+
+if __name__ == "__main__":
     while True:
         try:
             ny_tz = pytz.timezone('America/New_York')
@@ -415,6 +637,10 @@ if __name__ == "__main__":
                 print("Market is open. Running the trading bot...")
                 main()
                 if now >= market_close - datetime.timedelta(minutes=5):
+                    print("\nChecking for limit order adjustments (5 mins before close)...")
+                    adjust_limit_orders(api)
+                    print("\n⏱️ 3:55 PM ET: Closing profitable positions and restoring cash...")
+                    close_profitable_positions(api)
                     print("\nClosing negative cash positions before market close (3:55 PM ET)...")
                     clear_negative_cash()
                 time.sleep(300)  # Wait 5 min before checking again
