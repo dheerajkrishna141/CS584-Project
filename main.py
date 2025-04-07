@@ -35,14 +35,8 @@ def fetch_historical_data(file_path="optimized_results.csv"):
         return pd.DataFrame()
 
 
-def has_pending_orders(api, symbol, side=None):
-    """ Check if there are pending orders for the symbol, optionally filtered by side. """
-    open_orders = api.list_orders(status='open')
-    for order in open_orders:
-        if order.symbol == symbol and (side is None or order.side == side):
-            print(f"Open order detected for {symbol} ({order.side.upper()})")
-            return True
-    return False
+
+
 
 def execute_trade(api, symbol, qty, side):
     """ Execute a trade order. """
@@ -261,12 +255,12 @@ def close_profitable_shorts_before_close():
             print("No profitable short positions to cover.")
             return
 
-        print(f"📈 Found {len(profitable_shorts)} profitable shorts. Covering them now...")
+        print(f"Found {len(profitable_shorts)} profitable shorts. Covering them now...")
 
         for pos in profitable_shorts:
             symbol = pos.symbol
             qty = abs(int(pos.qty))
-            print(f"✅ Covering profitable short: {symbol} ({qty} shares) | P/L: ${float(pos.unrealized_pl):.2f}")
+            print(f"Covering profitable short: {symbol} ({qty} shares) | P/L: ${float(pos.unrealized_pl):.2f}")
 
             api.submit_order(
                 symbol=symbol,
@@ -348,9 +342,6 @@ def submit_limit_order(api, symbol, qty, side, current_price):
 
     except APIError as e:
         print(f"API Error placing {side.upper()} order for {symbol}: {e}")
-
-
-
 
 
 def handle_signal_change(api, symbol, new_signal):
@@ -438,6 +429,17 @@ def adjust_limit_orders(api):
             for line in log_entries:
                 f.write(line + "\n")
 
+def has_pending_orders(api, symbol, side=None):
+    """ Check if there are pending orders for the symbol (optionally filtered by side). """
+    open_orders = api.list_orders(status='open')
+    symbol_orders = [
+        order for order in open_orders
+        if order.symbol == symbol and (side is None or order.side == side)
+    ]
+    if symbol_orders:
+        print(f"Open {side.upper() if side else ''} order(s) detected for {symbol}: {len(symbol_orders)} pending.")
+    return bool(symbol_orders)
+
 def run_strategy(api, symbol, last_signal, funds_per_stock):
     """Run strategy for a given symbol based on last recorded signal."""
     try:
@@ -513,8 +515,6 @@ def run_strategy(api, symbol, last_signal, funds_per_stock):
     except Exception as e:
         print(f"Error running strategy for {symbol}: {e}")
 
-
-
 def main():
     data = fetch_historical_data()
     account = api.get_account()
@@ -559,14 +559,13 @@ def main():
     # ---- SELL & SHORT ----
     if sell_tickers:
         print(f"\nProcessing {len(sell_tickers)} SELL/SHORT signals...")
-
         new_shorts = sell_tickers - set(tickers_in_portfolio.keys())
         num_new_shorts = len(new_shorts)
         per_short_funds = (buying_power * 0.9 / num_new_shorts) if num_new_shorts > 0 else 0
 
         for symbol in sell_tickers:
-            if symbol in tickers_in_portfolio and tickers_in_portfolio[symbol] != 0:
-                run_strategy(api, symbol, "Sell", 0)  # Just liquidate held positions
+            if symbol in tickers_in_portfolio and tickers_in_portfolio[symbol] > 0:
+                run_strategy(api, symbol, "Sell", 0)  # liquidate held positions
             else:
                 if has_pending_orders(api, symbol):
                     print(f"Skipping {symbol}: Already has a pending order.")
@@ -579,9 +578,9 @@ def main():
                         print(f"Skipping {symbol}: No valid market price.")
                         continue
 
-                    limit_price = round(current_price * 1.05, 2)  # for shorting
+                    limit_price = round(current_price * 1.02, 2)  # for shorting
                     if per_short_funds < limit_price:
-                        print(f"Skipping {symbol}: Not enough buying power to short even 1 share at ${limit_price:.2f}")
+                        print(f"Skipping {symbol}: Buying power per stock is ${per_short_funds:.2f} Not enough buying power to short even 1 share at ${limit_price:.2f}")
                         continue
 
                     print(f"{symbol} not in portfolio. Allocating ${per_short_funds:.2f} for shorting.")
@@ -641,8 +640,8 @@ if __name__ == "__main__":
                     adjust_limit_orders(api)
                     print("\n⏱️ 3:55 PM ET: Closing profitable positions and restoring cash...")
                     close_profitable_positions(api)
-                    print("\nClosing negative cash positions before market close (3:55 PM ET)...")
-                    clear_negative_cash()
+                    # print("\nClosing negative cash positions before market close (3:55 PM ET)...")
+                    # clear_negative_cash()
                 time.sleep(300)  # Wait 5 min before checking again
             else:
                 next_open = get_next_market_open(now)

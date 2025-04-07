@@ -13,7 +13,6 @@ filterwarnings("ignore")
 
 def fetch_symbols():
     """ Fetches symbols for NASDAQ-100 and S&P 500 indices """
-
     def fetch_sp500_symbols():
         url = 'https://en.wikipedia.org/wiki/List_of_S%26P_500_companies'
         resp = requests.get(url)
@@ -141,6 +140,15 @@ def download_data(symbols):
     # Save updated data
     df_combined.to_csv(filename, index=False)
     print(f"Data saved correctly to {filename}")
+
+    #Delete old stock_data_*.csv files (excluding the newly saved one)
+    for f in os.listdir():
+        if f.startswith("stock_data_") and f.endswith(".csv") and f != filename:
+            try:
+                os.remove(f)
+                print(f"Deleted old file: {f}")
+            except Exception as e:
+                print(f"Failed to delete {f}: {e}")
 
     return filename
 
@@ -286,8 +294,6 @@ class Optimizer:
         print(results_df)  # Debugging Output
 
         return results_df
-
-
 
 
 def run_code():
