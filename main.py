@@ -34,10 +34,6 @@ def fetch_historical_data(file_path="optimized_results.csv"):
         print("No data file found")
         return pd.DataFrame()
 
-
-
-
-
 def execute_trade(api, symbol, qty, side):
     """ Execute a trade order. """
     order_type = 'market'
@@ -69,7 +65,6 @@ def is_holiday(date):
     """Check if the date is a holiday."""
     us_holidays = holidays.US(years=date.year)
     return date in us_holidays
-
 
 def get_next_market_open(now):
     """Calculate the next market open time considering weekends and holidays."""
@@ -132,9 +127,6 @@ def check_account_value_and_close_positions(api):
         print(f"Portfolio Value is {equity:.2f}. Continuing trading.")
         return False  # Continue execution
 
-
-
-
 def close_all_short_positions():
     """
     Fetches all open positions and closes only short positions by placing market buy orders.
@@ -162,7 +154,7 @@ def close_all_short_positions():
                 type='market',
                 time_in_force='gtc'  # Good-Til-Canceled
             )
-            print(f"✅ Order placed to buy {qty} shares of {symbol} (covering short position).")
+            print(f"Order placed to buy {qty} shares of {symbol} (covering short position).")
 
     except Exception as e:
         print(f"Error closing short positions: {e}")
@@ -307,7 +299,6 @@ def close_profitable_positions(api):
 
 # Global tracker for original limit prices (symbol -> original limit price)
 original_limit_prices = {}
-
 
 def submit_limit_order(api, symbol, qty, side, current_price):
     """
