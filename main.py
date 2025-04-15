@@ -267,35 +267,45 @@ def close_profitable_shorts_before_close():
 
 def close_profitable_positions(api):
     """
-    Closes all long or short positions with a positive unrealized profit.
+    Closes all long or short positions with at least 5% unrealized profit.
     """
     try:
         positions = api.list_positions()
         profitable_positions = []
 
         for pos in positions:
-            unrealized_pl = float(pos.unrealized_pl)
             qty = int(pos.qty)
+            if qty == 0:
+                continue  # Skip zero-quantity positions
 
-            if unrealized_pl > 0 and qty != 0:
-                profitable_positions.append((pos.symbol, qty, pos.side))
+            unrealized_pl = float(pos.unrealized_pl)
+            market_value = float(pos.market_value)
+
+            if market_value == 0:
+                continue  # Avoid division by zero
+
+            profit_pct = (unrealized_pl / market_value) * 100
+
+            if profit_pct >= 5:
+                profitable_positions.append((pos.symbol, qty, pos.side, profit_pct))
 
         if not profitable_positions:
-            print("No profitable positions to close.")
+            print("No positions with at least 5% profit to close.")
             return
 
-        print(f"Found {len(profitable_positions)} profitable positions. Closing them now...")
+        print(f"Found {len(profitable_positions)} profitable positions (≥5%). Closing them now...")
 
-        for symbol, qty, side in profitable_positions:
-            print(f"Closing profitable position: {symbol} ({qty} shares, {side})")
+        for symbol, qty, side, pct in profitable_positions:
+            print(f"Closing {symbol}: {qty} shares ({side}) with {pct:.2f}% unrealized profit")
             try:
                 api.close_position(symbol)
-                print(f"✅ Closed {symbol}")
+                print(f"Closed {symbol}")
             except APIError as e:
                 print(f"Failed to close {symbol}: {e}")
 
     except Exception as e:
         print(f"Error while closing profitable positions: {e}")
+
 
 # Global tracker for original limit prices (symbol -> original limit price)
 original_limit_prices = {}

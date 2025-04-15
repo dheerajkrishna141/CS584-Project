@@ -335,9 +335,9 @@ def job():
 
 if __name__ == "__main__":
     # Schedule job for 30 minutes before NYSE market open (9:00 AM ET)
-    schedule.every().day.at("09:15").do(job)
+    schedule.every().day.at("09:20").do(job)
 
-    print("Scheduler started. Waiting for 9:15 AM ET every weekday...")
+    print("Scheduler started. Waiting for 9:20 AM ET every weekday...")
     while True:
         schedule.run_pending()
         time.sleep(30)
