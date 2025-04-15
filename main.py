@@ -446,16 +446,12 @@ def run_strategy(api, symbol, last_signal, funds_per_stock):
     try:
         side = 'buy' if last_signal.lower() == 'buy' else 'sell'
 
-        if has_pending_orders(api, symbol, side):
-            print(f"{symbol}: Skipping {side.upper()} — existing {side.upper()} order is pending.")
-            return
-
-        # Get position and price info
+        # Get current position
         try:
             position = api.get_position(symbol)
             position_qty = int(position.qty)
         except APIError as error:
-            if 'position does not exist' in str(error).lower():
+            if 'position does not exist' in str(error):
                 position_qty = 0
             else:
                 print(f"Error retrieving position for {symbol}: {error}")
@@ -467,33 +463,43 @@ def run_strategy(api, symbol, last_signal, funds_per_stock):
         cash = float(account.cash)
         buying_power = float(account.buying_power)
 
-        print(f"{symbol}: Price=${current_price:.2f}, Pos={position_qty}, Signal={last_signal}, Cash=${cash:.2f}, BP=${buying_power:.2f}")
-
         if current_price == 0:
             print(f"Skipping {symbol}: No valid price.")
             return
 
-        # Determine order side, limit price, and quantity
+        # Determine limit price and qty
         if last_signal == 'Buy':
-            limit_price = round(current_price * 0.98, 2)
             if position_qty < 0:
-                print(f"Covering short position: {abs(position_qty)} shares of {symbol}")
                 qty = abs(position_qty)
+                limit_price = round(current_price * 1.05, 2)  # Buying to cover
             else:
+                limit_price = round(current_price * 0.95, 2)
                 adjusted_funds = min(funds_per_stock, cash)
                 qty = int(adjusted_funds / limit_price)
-
         elif last_signal == 'Sell':
-            limit_price = round(current_price * 1.02, 2)
             if position_qty > 0:
-                print(f"Selling long position: {position_qty} shares of {symbol}")
                 qty = position_qty
-            elif position_qty == 0:
-                adjusted_funds = min(funds_per_stock, buying_power)
-                qty = int(adjusted_funds / limit_price)
+                limit_price = round(current_price * 1.05, 2)
             else:
-                print(f"{symbol}: Already shorted. Holding.")
-                return
+                limit_price = round(current_price * 1.05, 2)
+                qty = int(funds_per_stock / limit_price)
+
+                # Always evaluate short entry even if already shorted
+                open_orders = api.list_orders(status='open', symbols=[symbol])
+                for order in open_orders:
+                    if order.side == 'sell':
+                        existing_qty = int(order.qty)
+                        if qty > existing_qty:
+                            try:
+                                api.cancel_order(order.id)
+                                print(f"Cancelled existing SELL order for {symbol}: {existing_qty} < {qty}")
+                            except Exception as e:
+                                print(f"Failed to cancel existing order for {symbol}: {e}")
+                                return
+                        else:
+                            print(f"Skipping {symbol}: Existing SELL order has equal or better quantity ({existing_qty} ≥ {qty})")
+                            return
+
         else:
             print(f"Unknown signal type '{last_signal}' for {symbol}.")
             return
@@ -502,8 +508,27 @@ def run_strategy(api, symbol, last_signal, funds_per_stock):
             print(f"Skipping {symbol}: Quantity too small.")
             return
 
-        print(f"Placing {side.upper()} LIMIT order for {symbol}: {qty} shares @ ${limit_price:.2f} (60-day GTC)")
+        # Check existing pending order and compare quantity
+        open_orders = api.list_orders(status='open')
+        matching_orders = [o for o in open_orders if o.symbol == symbol and o.side == side]
 
+        if matching_orders:
+            existing_order = matching_orders[0]
+            existing_qty = int(existing_order.qty)
+
+            if qty > existing_qty:
+                try:
+                    api.cancel_order(existing_order.id)
+                    print(f"Cancelled existing order for {symbol}: {existing_qty} < {qty}")
+                except Exception as e:
+                    print(f"Failed to cancel existing order for {symbol}: {e}")
+                    return
+            else:
+                print(f"Skipping {symbol}: Existing order has equal or better quantity ({existing_qty} ≥ {qty})")
+                return
+
+        # Submit new improved limit order
+        print(f"Placing {side.upper()} LIMIT order for {symbol}: {qty} shares @ ${limit_price:.2f} (60-day GTC)")
         api.submit_order(
             symbol=symbol,
             qty=qty,
