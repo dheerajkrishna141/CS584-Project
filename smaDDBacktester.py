@@ -200,8 +200,11 @@ class SMABacktester:
     def prepare_data(self):
         """ Prepare the data by calculating log returns and SMAs """
         self.data["returns"] = np.log(self.data["Close"] / self.data["Close"].shift(1))
-        self.data["SMA_S"] = self.data["Close"].rolling(self.SMA_S).mean()
-        self.data["SMA_L"] = self.data["Close"].rolling(self.SMA_L).mean()
+        # Only calculate SMAs if not already present
+        if "SMA_S" not in self.data.columns:
+            self.data["SMA_S"] = self.data["Close"].rolling(self.SMA_S).mean()
+        if "SMA_L" not in self.data.columns:
+            self.data["SMA_L"] = self.data["Close"].rolling(self.SMA_L).mean()
         self.data.dropna(inplace=True)
 
     def test_results(self):
@@ -241,14 +244,16 @@ class Optimizer:
 
     def find_best_sma(self):
         """ Find the best SMA parameters for each symbol, optimizing for performance and drawdown. """
+        import concurrent.futures
         results = []
 
-        for symbol in self.symbols:
+        # Define a function to process a single symbol
+        def process_symbol(symbol):
             print(f"Processing {symbol}...")  # Debugging Output
 
             if symbol not in self.data:
                 print(f"Skipping {symbol} (No Data Found)")
-                continue
+                return None
 
             symbol_data = self.data[symbol]
             best_config = {
@@ -257,9 +262,21 @@ class Optimizer:
             }
 
             try:
+                # Pre-calculate all SMA combinations to avoid redundant calculations
+                # Calculate all required SMAs once
+                sma_values = {}
+                for sma in range(20, 201):
+                    if sma <= 50 or sma % 10 == 0:  # Only calculate needed SMAs
+                        sma_values[sma] = symbol_data['Close'].rolling(sma).mean()
+
                 for SMA_S in range(20, 51):
                     for SMA_L in range(100, 201, 10):
-                        tester = SMABacktester(symbol, symbol_data.copy(), SMA_S, SMA_L)
+                        # Create a copy of the data with pre-calculated SMAs
+                        data_copy = symbol_data.copy()
+                        data_copy['SMA_S'] = sma_values[SMA_S]
+                        data_copy['SMA_L'] = sma_values[SMA_L]
+
+                        tester = SMABacktester(symbol, data_copy, SMA_S, SMA_L)
 
                         # Unpack results from the backtester
                         outperf, perf, max_drawdown, signal = tester.test_results()
@@ -274,18 +291,27 @@ class Optimizer:
 
             except Exception as e:
                 print(f"Failed to process {symbol} due to error: {e}")
-                continue
+                return None
 
-            # Append only if performance > 0.20 and drawdown > -0.50
+            # Return result only if performance > 0.20 and drawdown > -0.50
             if best_config["Performance"] > 0.20 and best_config["Max_Drawdown"] > -0.50:
-                results.append({
+                return {
                     "Symbol": symbol,
                     "Best_SMA_S": best_config["SMA_S"],
                     "Best_SMA_L": best_config["SMA_L"],
                     "Max_Performance": best_config["Performance"],
                     "Max_Drawdown": best_config["Max_Drawdown"],
                     "Last_Signal": best_config["Last_Signal"]
-                })
+                }
+            return None
+
+        # Process symbols in parallel
+        with concurrent.futures.ThreadPoolExecutor(max_workers=min(8, len(self.symbols))) as executor:
+            futures = {executor.submit(process_symbol, symbol): symbol for symbol in self.symbols}
+            for future in concurrent.futures.as_completed(futures):
+                result = future.result()
+                if result:
+                    results.append(result)
 
         # Convert results to a DataFrame
         results_df = pd.DataFrame(results)
@@ -341,4 +367,3 @@ if __name__ == "__main__":
     while True:
         schedule.run_pending()
         time.sleep(30)
-
