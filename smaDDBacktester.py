@@ -83,7 +83,7 @@ def download_data(symbols):
 
     if df_new.empty:
         print("No new data retrieved.")
-        return latest_file  # Return existing latest file
+        return latest_file  # Return the existing latest file
 
     # Convert MultiIndex into a flat DataFrame
     if isinstance(df_new.columns, pd.MultiIndex):
@@ -107,7 +107,7 @@ def download_data(symbols):
         if "Symbol" in df_existing.columns:
             df_existing = df_existing.drop(columns=["Symbol"])
 
-        # Ensure new data does NOT have 'Symbol' column
+        # Ensure new data does NOT have a 'Symbol' column
         if "Symbol" in df_new.columns:
             df_new = df_new.drop(columns=["Symbol"])
 
@@ -133,7 +133,7 @@ def download_data(symbols):
     else:
         df_combined = df_new
 
-    # Show tail of final merged dataset
+    # Show tail of the final merged dataset
     print("\nCombined Data (Last 5 Rows After Merging):")
     print(df_combined.tail())
 
@@ -172,7 +172,7 @@ def load_data_from_file(filename):
 
                 if columns:
                     df_ticker = df[columns].copy()
-                    df_ticker.columns = ['Open', 'High', 'Low', 'Close', 'Volume']  # Rename columns back to standard
+                    df_ticker.columns = ['Open', 'High', 'Low', 'Close', 'Volume']  # Rename columns back to a standard
                     data[ticker] = df_ticker.dropna()  # Drop missing values
 
             except Exception as e:
@@ -217,11 +217,11 @@ class SMABacktester:
         # Calculate strategy cumulative performance
         total_return = round(self.data["strategy"].sum(), 2)
 
-        # Benchmark performance (buy & hold return)
+        # Benchmark performance (buy and hold return)
         benchmark_return = round(self.data["returns"].sum(), 2)
 
         # Outperformance (strategy return - benchmark return)
-        outperf = round(total_return - benchmark_return, 2)
+        outperform = round(total_return - benchmark_return, 2)
 
         # Max Drawdown Calculation
         cum_returns = self.data["strategy"].cumsum()
@@ -229,10 +229,10 @@ class SMABacktester:
         drawdown = peak - cum_returns
         max_drawdown = round(drawdown.max(), 2)  # Worst drawdown observed
 
-        # Determine last trade signal (Buy/Sell)
+        # Determine the last trade signal (Buy/Sell)
         last_signal = "Buy" if self.data["position"].iloc[-1] == 1 else "Sell"
 
-        return outperf, total_return, max_drawdown, last_signal
+        return outperform, total_return, max_drawdown, last_signal
 
 
 class Optimizer:
@@ -279,13 +279,13 @@ class Optimizer:
                         tester = SMABacktester(symbol, data_copy, SMA_S, SMA_L)
 
                         # Unpack results from the backtester
-                        outperf, perf, max_drawdown, signal = tester.test_results()
+                        outperform, perf, max_drawdown, signal = tester.test_results()
 
-                        # Update best configuration based on performance and drawdown criteria
-                        if outperf > best_config["Performance"] or (
-                                outperf == best_config["Performance"] and max_drawdown < best_config["Max_Drawdown"]):
+                        # Update the best configuration based on performance and drawdown criteria
+                        if outperform > best_config["Performance"] or (
+                                outperform == best_config["Performance"] and max_drawdown < best_config["Max_Drawdown"]):
                             best_config.update({
-                                "SMA_S": SMA_S, "SMA_L": SMA_L, "Performance": outperf,
+                                "SMA_S": SMA_S, "SMA_L": SMA_L, "Performance": outperform,
                                 "Max_Drawdown": max_drawdown, "Last_Signal": signal
                             })
 
@@ -293,7 +293,7 @@ class Optimizer:
                 print(f"Failed to process {symbol} due to error: {e}")
                 return None
 
-            # Return result only if performance > 0.20 and drawdown > -0.50
+            # Return a result only if performance > 0.20 and drawdown > -0.50
             if best_config["Performance"] > 0.20 and best_config["Max_Drawdown"] > -0.50:
                 return {
                     "Symbol": symbol,
@@ -332,7 +332,7 @@ def run_code():
         df_results = optimizer.find_best_sma()
         df_results.to_csv("optimized_results.csv", index=False)
 
-        # Save to date-stamped file (e.g., optimized_results_032525.csv)
+        # Save to a date-stamped file (e.g., optimized_results_032525.csv)
         today_str = datetime.now().strftime("%m%d%y")
         dated_filename = f"optimized_results_{today_str}.csv"
         df_results.to_csv(dated_filename, index=False)
@@ -360,7 +360,7 @@ def job():
         print("Market closed today (weekend/holiday). Skipping run.")
 
 if __name__ == "__main__":
-    # Schedule job for 30 minutes before NYSE market open (9:00 AM ET)
+    # Schedule the job for 30 minutes before NYSE market open (9:00 AM ET)
     schedule.every().day.at("09:20").do(job)
 
     print("Scheduler started. Waiting for 9:20 AM ET every weekday...")
