@@ -95,7 +95,7 @@ def get_next_market_open(current):
     return current
 
 def print_progress_bar(total_seconds):
-    """Print a progress bar showing remaining time within square brackets with a rotating marker."""
+    """Print a progress bar showing the remaining time within square brackets with a rotating marker."""
     marker_positions = '|/-\\'  # Rotating marker symbols
     start_time = datetime.now()
     end_time = start_time + timedelta(seconds=total_seconds)
@@ -112,7 +112,7 @@ def print_progress_bar(total_seconds):
     print()  # Print a newline at the end
 
 def check_account_value_and_close_positions(app_intf):
-    """Check account value and close all positions if it exceeds $100,000."""
+    """Check the account value and close all positions if it exceeds $100,000."""
     # Get account information
     account = app_intf.get_account()
     equity = float(account.equity)
@@ -387,7 +387,7 @@ def handle_signal_change(app_intf, symbol, new_signal):
             except Exception as err:
                 print(f"Failed to cancel order for {symbol}: {err}")
 
-            return True  # Signal changed and order canceled
+            return True  # Signal changed and canceled order
 
     return False  # Signal was the same as pending order
 

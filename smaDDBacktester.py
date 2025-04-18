@@ -120,11 +120,11 @@ def download_data(symbols):
         df_new = df_new[common_columns]
         df_existing = df_existing[common_columns]
 
-        # Show tail of the last available data before merging
+        # Show the tail of the last available data before merging
         print("\nExisting Data (Last 5 Rows):")
         print(df_existing.tail())
 
-        # Show tail of newly downloaded data
+        # Show the tail of newly downloaded data
         print("\nNew Data (Last 5 Rows):")
         print(df_new.tail())
 
