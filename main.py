@@ -619,6 +619,54 @@ def main():
             quotes.update(batch_quotes)
         except Exception as err:
             print(f"Error fetching quotes for batch {i//batch_size + 1}: {err}")
+    
+    # ---- BUY ----
+    if buying_power > 0 and buy_tickers:
+        new_buys = buy_tickers - tickers_in_portfolio.keys()
+        print(f"\nProcessing {len(new_buys)} BUY signals (new/reversals)...")
+
+        if new_buys:
+            per_buy_funds = buying_power * 0.9 / len(new_buys)
+            print(f"Allocated Funds Per BUY Stock: ${per_buy_funds:.2f}")
+
+            for symbol in new_buys:
+                # --- Check for existing short position ---
+                if symbol in tickers_in_portfolio:
+                    position = tickers_in_portfolio[symbol]
+                    if position < 0:
+                        qty_to_cover = abs(int(position))
+
+                        # --- Cancel pending short LIMIT order if it exists ---
+                        existing_order = pending_orders.get(symbol)
+                        if existing_order and existing_order.side == "sell":
+                            try:
+                                print(f"[CANCEL] Canceling pending short limit order for {symbol}")
+                                api.cancel_order(existing_order.id)
+                                time.sleep(1)
+                            except Exception as e:
+                                print(f"[ERROR] Could not cancel short order for {symbol}: {e}")
+
+                        # --- Submit market buy to cover the short ---
+                        try:
+                            print(f"[REVERSE] Covering short for {symbol}: {qty_to_cover} shares")
+                            api.submit_order(
+                                symbol=symbol,
+                                qty=qty_to_cover,
+                                side="buy",
+                                type="market",
+                                time_in_force="day"
+                            )
+                            time.sleep(1)  # Give time for execution
+                        except Exception as e:
+                            print(f"[ERROR] Failed to cover short for {symbol}: {e}")
+                            continue  # Skip to next symbol if reversal fails
+
+                # --- Proceed with the BUY strategy ---
+                run_strategy(api, symbol, "Buy", per_buy_funds, quotes.get(symbol), pending_orders.get(symbol))
+        else:
+            print("No new tickers to buy.")
+    else:
+        print("Insufficient cash for buys. Skipping new buy orders.")
 
     # ---- SELL & SHORT ----
     if sell_tickers:
@@ -657,21 +705,7 @@ def main():
                 except Exception as err:
                     print(f"Error preparing short for {symbol}: {err}")
 
-    # ---- BUY ----
-    if cash_available > 0 and buy_tickers:
-        new_buys = buy_tickers - tickers_in_portfolio.keys()
-        print(f"\nProcessing {len(new_buys)} BUY signals (new)...")
-
-        if new_buys:
-            per_buy_funds = cash_available * 0.9 / len(new_buys)
-            print(f"Allocated Funds Per BUY Stock: ${per_buy_funds:.2f}")
-            for symbol in new_buys:
-                run_strategy(api, symbol, "Buy", per_buy_funds, quotes.get(symbol), pending_orders.get(symbol))
-        else:
-            print("No new tickers to buy.")
-    else:
-        print("Insufficient cash for buys. Skipping new buy orders.")
-
+    
     # ---- Daily Summary ----
     equity = float(account.equity)
     last_equity = float(account.last_equity)

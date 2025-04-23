@@ -2,9 +2,11 @@ import schedule
 import yfinance as yf
 import pandas as pd
 import numpy as np
+import concurrent.futures
 from warnings import filterwarnings
 import requests
 from datetime import datetime, timedelta
+from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, confusion_matrix
 import time
 import os
 import pytz
@@ -186,126 +188,183 @@ def load_data_from_file(filename):
         return {}
 
 
-class SMABacktester:
-    """ SMA Backtesting strategy """
+class Backtester:
+    """ Backtesting strategy with SMA or Rolling Regression """
 
-    def __init__(self, symbol, data, sma_s, sma_l):
+    def __init__(self, symbol, data, sma_s, sma_l, use_regression=False):
         self.symbol = symbol
-        self.data = data.copy()  # Avoid modifying original data
+        self.data = data.copy()
         self.SMA_S = sma_s
         self.SMA_L = sma_l
+        self.use_regression = use_regression
         self.results = None
         self.prepare_data()
 
     def prepare_data(self):
-        """ Prepare the data by calculating log returns and SMAs """
         self.data["returns"] = np.log(self.data["Close"] / self.data["Close"].shift(1))
-        # Only calculate SMAs if not already present
-        if "SMA_S" not in self.data.columns:
+        if not self.use_regression:
             self.data["SMA_S"] = self.data["Close"].rolling(self.SMA_S).mean()
-        if "SMA_L" not in self.data.columns:
             self.data["SMA_L"] = self.data["Close"].rolling(self.SMA_L).mean()
         self.data.dropna(inplace=True)
 
+    def compute_rolling_slope(self, series, window):
+        """Vectorized computation of rolling slope using linear regression."""
+        x = np.arange(window)
+        x_mean = x.mean()
+        x_demeaned = x - x_mean
+        x_demeaned_sq_sum = (x_demeaned ** 2).sum()
+
+        def slope_calc(window_values):
+            y = np.array(window_values)
+            y_demeaned = y - y.mean()
+            return (x_demeaned @ y_demeaned) / x_demeaned_sq_sum
+
+        return series.rolling(window).apply(slope_calc, raw=True)
+
     def test_results(self):
-        """ Backtests the SMA strategy and returns performance metrics """
+        if self.use_regression:
+            self.data["Slope_S"] = self.compute_rolling_slope(self.data["Close"], self.SMA_S)
+            self.data["Slope_L"] = self.compute_rolling_slope(self.data["Close"], self.SMA_L)
+            self.data["position"] = np.where(self.data["Slope_S"] > self.data["Slope_L"], 1, -1)
+        else:
+            self.data["position"] = np.where(self.data["SMA_S"] > self.data["SMA_L"], 1, -1)
 
-        # Generate trading signals (1 = Buy, -1 = Sell)
-        self.data["position"] = np.where(self.data["SMA_S"] > self.data["SMA_L"], 1, -1)
         self.data["strategy"] = self.data["returns"] * self.data["position"].shift(1)
-
-        # Calculate strategy cumulative performance
         total_return = round(self.data["strategy"].sum(), 2)
-
-        # Benchmark performance (buy and hold return)
         benchmark_return = round(self.data["returns"].sum(), 2)
-
-        # Outperformance (strategy return - benchmark return)
         outperform = round(total_return - benchmark_return, 2)
 
-        # Max Drawdown Calculation
         cum_returns = self.data["strategy"].cumsum()
         peak = cum_returns.cummax()
         drawdown = peak - cum_returns
-        max_drawdown = round(drawdown.max(), 2)  # Worst drawdown observed
+        max_drawdown = round(drawdown.max(), 2)
 
-        # Determine the last trade signal (Buy/Sell)
         last_signal = "Buy" if self.data["position"].iloc[-1] == 1 else "Sell"
 
-        return outperform, total_return, max_drawdown, last_signal
+        # ------------------------------------------
+        # Accuracy, Precision, Recall Computation
+        # ------------------------------------------
+        self.data.dropna(inplace=True)
+        signal_shifted = self.data["position"].shift(1)
+
+        # Define actual outcome: 1 if next return is positive, else -1
+        self.data["actual"] = np.where(self.data["returns"] > 0, 1, -1)
+
+        # Filter out NaNs (they might arise from shift/rolling ops)
+        mask = self.data["position"].notna()
+        y_true = self.data.loc[mask, "actual"]
+        y_pred = self.data.loc[mask, "position"]
+
+        # Convert -1/1 to 0/1 for classification metrics
+        y_true_bin = (y_true == 1).astype(int)
+        y_pred_bin = (y_pred == 1).astype(int)
+
+        # Metrics
+        accuracy = accuracy_score(y_true_bin, y_pred_bin)
+        precision = precision_score(y_true_bin, y_pred_bin, zero_division=0)
+        recall = recall_score(y_true_bin, y_pred_bin, zero_division=0)
+        f1 = f1_score(y_true_bin, y_pred_bin, zero_division=0)
+
+        return {
+            "Outperformance": outperform,
+            "Total Return": total_return,
+            "Max Drawdown": max_drawdown,
+            "Last Signal": last_signal,
+            "Accuracy": round(accuracy, 4),
+            "Precision": round(precision, 4),
+            "Recall": round(recall, 4),
+            "F1_Score": round(f1, 4),
+        }
 
 
 class Optimizer:
-    """ Optimization class for finding the best SMA parameters and generating buy/sell signals. """
+    """ Optimization class for finding the best SMA or Regression parameters and generating buy/sell signals. """
 
-    def __init__(self, symbols, data):
+    def __init__(self, symbols, data, use_regression=False):
         self.symbols = symbols
         self.data = data
+        self.use_regression = use_regression
 
     def find_best_sma(self):
-        """ Find the best SMA parameters for each symbol, optimizing for performance and drawdown. """
-        import concurrent.futures
+        # import concurrent.futures
         results = []
 
-        # Define a function to process a single symbol
         def process_symbol(symbol):
-            print(f"Processing {symbol}...")  # Debugging Output
-
+            print(f"Processing {symbol}...")
             if symbol not in self.data:
                 print(f"Skipping {symbol} (No Data Found)")
                 return None
 
             symbol_data = self.data[symbol]
             best_config = {
-                "SMA_S": None, "SMA_L": None, "Performance": -float('inf'),
-                "Max_Drawdown": float('inf'), "Last_Signal": None
+                "SMA_S": None,
+                "SMA_L": None,
+                "Performance": -float("inf"),
+                "Max_Drawdown": float("inf"),
+                "Last_Signal": None,
+                "Accuracy": 0.0,
+                "Precision": 0.0,
+                "Recall": 0.0,
+                "F1_Score": 0.0
             }
 
             try:
-                # Pre-calculate all SMA combinations to avoid redundant calculations
-                # Calculate all required SMAs once
                 sma_values = {}
                 for sma in range(20, 201):
-                    if sma <= 50 or sma % 10 == 0:  # Only calculate needed SMAs
+                    if sma <= 50 or sma % 10 == 0:
                         sma_values[sma] = symbol_data['Close'].rolling(sma).mean()
 
                 for SMA_S in range(20, 51):
                     for SMA_L in range(100, 201, 10):
-                        # Create a copy of the data with pre-calculated SMAs
                         data_copy = symbol_data.copy()
-                        data_copy['SMA_S'] = sma_values[SMA_S]
-                        data_copy['SMA_L'] = sma_values[SMA_L]
+                        if not self.use_regression:
+                            data_copy['SMA_S'] = sma_values[SMA_S]
+                            data_copy['SMA_L'] = sma_values[SMA_L]
 
-                        tester = SMABacktester(symbol, data_copy, SMA_S, SMA_L)
+                        tester = Backtester(symbol, data_copy, SMA_S, SMA_L, use_regression=self.use_regression)
+                        results = tester.test_results()
+                        outperform = results["Outperformance"]
+                        perf = results["Total Return"]
+                        max_drawdown = results["Max Drawdown"]
+                        signal = results["Last Signal"]
+                        accuracy = results["Accuracy"]
+                        precision = results["Precision"]
+                        recall = results["Recall"]
+                        f1_score = results["F1_Score"]
 
-                        # Unpack results from the backtester
-                        outperform, perf, max_drawdown, signal = tester.test_results()
-
-                        # Update the best configuration based on performance and drawdown criteria
                         if outperform > best_config["Performance"] or (
-                                outperform == best_config["Performance"] and max_drawdown < best_config["Max_Drawdown"]):
+                                outperform == best_config["Performance"] and max_drawdown < best_config[
+                            "Max_Drawdown"]):
                             best_config.update({
-                                "SMA_S": SMA_S, "SMA_L": SMA_L, "Performance": outperform,
-                                "Max_Drawdown": max_drawdown, "Last_Signal": signal
+                                "SMA_S": SMA_S,
+                                "SMA_L": SMA_L,
+                                "Performance": outperform,
+                                "Max_Drawdown": max_drawdown,
+                                "Last_Signal": signal,
+                                "Accuracy": accuracy,
+                                "Precision": precision,
+                                "Recall": recall,
+                                "F1_Score": f1_score,
                             })
-
             except Exception as e:
                 print(f"Failed to process {symbol} due to error: {e}")
                 return None
 
-            # Return a result only if performance > 0.20 and drawdown > -0.50
             if best_config["Performance"] > 0.20 and best_config["Max_Drawdown"] > -0.50:
                 return {
                     "Symbol": symbol,
                     "Best_SMA_S": best_config["SMA_S"],
                     "Best_SMA_L": best_config["SMA_L"],
-                    "Max_Performance": best_config["Performance"],
-                    "Max_Drawdown": best_config["Max_Drawdown"],
-                    "Last_Signal": best_config["Last_Signal"]
+                    "Max_Performance": outperform,
+                    "Max_Drawdown": max_drawdown,
+                    "Last_Signal": signal,
+                    "Accuracy": accuracy,
+                    "Precision": precision,
+                    "Recall": recall,
+                    "F1_Score": f1_score
                 }
             return None
 
-        # Process symbols in parallel
         with concurrent.futures.ThreadPoolExecutor(max_workers=min(8, len(self.symbols))) as executor:
             futures = {executor.submit(process_symbol, symbol): symbol for symbol in self.symbols}
             for future in concurrent.futures.as_completed(futures):
@@ -313,26 +372,22 @@ class Optimizer:
                 if result:
                     results.append(result)
 
-        # Convert results to a DataFrame
         results_df = pd.DataFrame(results)
-
         print("\nFinal Optimized Results:")
-        print(results_df)  # Debugging Output
-
+        print(results_df)
         return results_df
 
 
-def run_code():
+def run_code(use_regression=False):
     symbols = fetch_symbols()
     filename = download_data(symbols)
 
     if filename:
         data = load_data_from_file(filename)
-        optimizer = Optimizer(symbols, data)
+        optimizer = Optimizer(symbols, data, use_regression=use_regression)
         df_results = optimizer.find_best_sma()
         df_results.to_csv("optimized_results.csv", index=False)
 
-        # Save to a date-stamped file (e.g., optimized_results_032525.csv)
         today_str = datetime.now().strftime("%m%d%y")
         dated_filename = f"optimized_results_{today_str}.csv"
         df_results.to_csv(dated_filename, index=False)
@@ -361,6 +416,7 @@ def job():
 
 if __name__ == "__main__":
     # Schedule the job for 30 minutes before NYSE market open (9:00 AM ET)
+    run_code(use_regression=True)
     schedule.every().day.at("09:20").do(job)
 
     print("Scheduler started. Waiting for 9:20 AM ET every weekday...")
