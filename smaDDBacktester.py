@@ -80,9 +80,6 @@ def download_data(symbols):
     if failed_tickers:
         print(f"Failed downloads: {failed_tickers}")
 
-    # Debugging: Check if data was retrieved
-    print(f'Data Downloaded: {df_new.shape[0]} rows, {df_new.shape[1]} columns')
-
     if df_new.empty:
         print("No new data retrieved.")
         return latest_file  # Return the existing latest file
@@ -122,22 +119,10 @@ def download_data(symbols):
         df_new = df_new[common_columns]
         df_existing = df_existing[common_columns]
 
-        # Show the tail of the last available data before merging
-        print("\nExisting Data (Last 5 Rows):")
-        print(df_existing.tail())
-
-        # Show the tail of newly downloaded data
-        print("\nNew Data (Last 5 Rows):")
-        print(df_new.tail())
-
         # Merge old and new data, removing duplicates
         df_combined = pd.concat([df_existing, df_new], ignore_index=True).drop_duplicates(subset=["Date"]).sort_values("Date")
     else:
         df_combined = df_new
-
-    # Show tail of the final merged dataset
-    print("\nCombined Data (Last 5 Rows After Merging):")
-    print(df_combined.tail())
 
     # Save updated data
     df_combined.to_csv(filename, index=False)
@@ -280,13 +265,14 @@ class Backtester:
 class Optimizer:
     """ Optimization class for finding the best SMA or Regression parameters and generating buy/sell signals. """
 
-    def __init__(self, symbols, data, use_regression=False):
+    def __init__(self, symbols, data, use_regression=False, selection_metric="performance"):
         self.symbols = symbols
         self.data = data
         self.use_regression = use_regression
+        self.selection_metric = selection_metric  # "performance" or "f1"
 
     def find_best_sma(self):
-        # import concurrent.futures
+        import concurrent.futures
         results = []
 
         def process_symbol(symbol):
@@ -300,12 +286,12 @@ class Optimizer:
                 "SMA_S": None,
                 "SMA_L": None,
                 "Performance": -float("inf"),
+                "F1_Score": -float("inf"),
                 "Max_Drawdown": float("inf"),
                 "Last_Signal": None,
                 "Accuracy": 0.0,
                 "Precision": 0.0,
-                "Recall": 0.0,
-                "F1_Score": 0.0
+                "Recall": 0.0
             }
 
             try:
@@ -322,29 +308,34 @@ class Optimizer:
                             data_copy['SMA_L'] = sma_values[SMA_L]
 
                         tester = Backtester(symbol, data_copy, SMA_S, SMA_L, use_regression=self.use_regression)
-                        results = tester.test_results()
-                        outperform = results["Outperformance"]
-                        perf = results["Total Return"]
-                        max_drawdown = results["Max Drawdown"]
-                        signal = results["Last Signal"]
-                        accuracy = results["Accuracy"]
-                        precision = results["Precision"]
-                        recall = results["Recall"]
-                        f1_score = results["F1_Score"]
+                        results_dict = tester.test_results()
 
-                        if outperform > best_config["Performance"] or (
-                                outperform == best_config["Performance"] and max_drawdown < best_config[
-                            "Max_Drawdown"]):
+                        # Extract metrics
+                        perf = results_dict["Outperformance"]
+                        max_dd = results_dict["Max Drawdown"]
+                        f1 = results_dict["F1_Score"]
+
+                        metric_passed = False
+                        if self.selection_metric == "performance":
+                            metric_passed = perf > best_config["Performance"] or (
+                                perf == best_config["Performance"] and max_dd < best_config["Max_Drawdown"]
+                            )
+                        elif self.selection_metric == "f1":
+                            metric_passed = f1 > best_config["F1_Score"] or (
+                                f1 == best_config["F1_Score"] and max_dd < best_config["Max_Drawdown"]
+                            )
+
+                        if metric_passed:
                             best_config.update({
                                 "SMA_S": SMA_S,
                                 "SMA_L": SMA_L,
-                                "Performance": outperform,
-                                "Max_Drawdown": max_drawdown,
-                                "Last_Signal": signal,
-                                "Accuracy": accuracy,
-                                "Precision": precision,
-                                "Recall": recall,
-                                "F1_Score": f1_score,
+                                "Performance": perf,
+                                "F1_Score": f1,
+                                "Max_Drawdown": max_dd,
+                                "Last_Signal": results_dict["Last Signal"],
+                                "Accuracy": results_dict["Accuracy"],
+                                "Precision": results_dict["Precision"],
+                                "Recall": results_dict["Recall"]
                             })
             except Exception as e:
                 print(f"Failed to process {symbol} due to error: {e}")
@@ -355,13 +346,13 @@ class Optimizer:
                     "Symbol": symbol,
                     "Best_SMA_S": best_config["SMA_S"],
                     "Best_SMA_L": best_config["SMA_L"],
-                    "Max_Performance": outperform,
-                    "Max_Drawdown": max_drawdown,
-                    "Last_Signal": signal,
-                    "Accuracy": accuracy,
-                    "Precision": precision,
-                    "Recall": recall,
-                    "F1_Score": f1_score
+                    "Max_Performance": best_config["Performance"],
+                    "F1_Score": best_config["F1_Score"],
+                    "Max_Drawdown": best_config["Max_Drawdown"],
+                    "Last_Signal": best_config["Last_Signal"],
+                    "Accuracy": best_config["Accuracy"],
+                    "Precision": best_config["Precision"],
+                    "Recall": best_config["Recall"]
                 }
             return None
 
@@ -378,13 +369,17 @@ class Optimizer:
         return results_df
 
 
-def run_code(use_regression=False):
+def run_code(use_regression=False,selection_metric="performance"):
+    ny_tz = pytz.timezone('America/New_York')
+    now = datetime.now(ny_tz)
+    formatted_time = now.strftime("%H:%M")
+    print("\nCurrent Time (HH:MM): ", formatted_time, "\n\n")
     symbols = fetch_symbols()
     filename = download_data(symbols)
 
     if filename:
         data = load_data_from_file(filename)
-        optimizer = Optimizer(symbols, data, use_regression=use_regression)
+        optimizer = Optimizer(symbols, data, use_regression=use_regression, selection_metric=selection_metric)
         df_results = optimizer.find_best_sma()
         df_results.to_csv("optimized_results.csv", index=False)
 
@@ -416,10 +411,11 @@ def job():
 
 if __name__ == "__main__":
     # Schedule the job for 30 minutes before NYSE market open (9:00 AM ET)
-    run_code(use_regression=True)
-    schedule.every().day.at("09:20").do(job)
 
-    print("Scheduler started. Waiting for 9:20 AM ET every weekday...")
-    while True:
-        schedule.run_pending()
-        time.sleep(30)
+    run_code(use_regression=True,selection_metric="f1")
+    #schedule.every().day.at("09:20").do(job)
+
+    #print("Scheduler started. Waiting for 9:20 AM ET every weekday...")
+    #while True:
+    #    schedule.run_pending()
+    #    time.sleep(30)
