@@ -1,0 +1,81 @@
+{
+  "company_info": {
+    "name": "Apple Inc.",
+    "symbol": "AAPL",
+    "industry": "Consumer Electronics",
+    "sector": "Technology",
+    "headquarters": {
+      "address": "One Apple Park Way",
+      "city": "Cupertino",
+      "state": "CA",
+      "zip": "95014",
+      "country": "United States"
+    },
+    "website": "https://www.apple.com",
+    "phone": "(408) 996-1010",
+    "employees": 150000
+  },
+  "executive_team": [
+    {
+      "name": "Timothy D. Cook",
+      "title": "CEO & Director",
+      "age": 63,
+      "total_pay": 16239562
+    },
+    {
+      "name": "Jeffrey E. Williams",
+      "title": "Chief Operating Officer",
+      "age": 60,
+      "total_pay": 4637585
+    },
+    {
+      "name": "Katherine L. Adams",
+      "title": "SVP, General Counsel & Secretary",
+      "age": 60,
+      "total_pay": 4618064
+    }
+  ],
+  "stock_info": {
+    "current_price": 199.74,
+    "market_cap": 3000514379776,
+    "52_week_range": {
+      "low": 166.21,
+      "high": 260.1
+    },
+    "dividend_yield": 0.5,
+    "p_e_ratio": {
+      "trailing": 31.75,
+      "forward": 24.03
+    },
+    "eps": {
+      "trailing_twelve_months": 6.29,
+      "forward": 8.31
+    }
+  },
+  "financials": {
+    "total_revenue": 395760009216,
+    "net_income": 96150003712,
+    "ebitda": 137352003584,
+    "cash_reserves": 53774999552,
+    "total_debt": 96798998528,
+    "free_cashflow": 93833871360,
+    "return_on_assets": 0.2252,
+    "return_on_equity": 1.3652
+  },
+  "analyst_ratings": {
+    "target_price_range": {
+      "low": 165.0,
+      "high": 300.0
+    },
+    "mean_target_price": 237.8,
+    "recommendation": "Buy",
+    "analyst_count": 42
+  },
+  "trading_info": {
+    "exchange": "NasdaqGS",
+    "market_state": "PRE",
+    "pre_market_price": 206.25,
+    "average_volume_3M": 61391024,
+    "beta": 1.259
+  }
+}
