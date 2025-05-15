@@ -1,0 +1,207 @@
+Pairs Trading Bot Initialized at 2025-05-03 17:15:42.738325
+Parameters: Lookback=60, Z-Score=2.0, Max Pairs=5, Position Size=5.0%
+
+[2025-05-03 17:15:42] Finding cointegrated pairs from 73 stocks...
+[2025-05-03 17:15:52] Available stocks in price_data: ['AAPL', 'MSFT', 'AMZN', 'GOOGL', 'META', 'TSLA', 'NVDA', 'JPM', 'JNJ', 'V', 'PG', 'UNH', 'HD', 'MA', 'BAC', 'DIS', 'ADBE', 'CRM', 'NFLX', 'PYPL', 'INTC', 'VZ', 'CMCSA', 'PEP', 'ABT', 'KO', 'MRK', 'PFE', 'WMT', 'T', 'CSCO', 'CVX', 'XOM', 'NKE', 'ABBV', 'TMO', 'AVGO', 'MCD', 'ACN', 'COST', 'DHR', 'LLY', 'MDT', 'TXN', 'QCOM', 'BMY', 'UNP', 'NEE', 'MS', 'C', 'ORCL', 'IBM', 'AMD', 'INTU', 'NOW', 'APH', 'ADI', 'SNPS', 'CDNS', 'KLAC', 'MU', 'ISRG', 'SYK', 'BSX', 'GILD', 'VRTX', 'REGN', 'ZTS', 'MCK', 'ELV', 'CI', 'CVS', 'HCA']
+[2025-05-03 17:15:52] Using sector/industry analysis to find pairs...
+[2025-05-03 17:16:08] Found pair ADBE-ACN with p-value 0.000540 in sector: Technology
+[2025-05-03 17:16:08] Found pair CSCO-TXN with p-value 0.001341 in sector: Technology
+[2025-05-03 17:16:08] Found pair CSCO-MU with p-value 0.003444 in sector: Technology
+[2025-05-03 17:16:08] Found pair CRM-ORCL with p-value 0.004209 in sector: Technology
+[2025-05-03 17:16:08] Found pair NVDA-MU with p-value 0.004405 in industry: Semiconductors
+[2025-05-03 17:16:08] Found pair AAPL-ACN with p-value 0.006311 in sector: Technology
+[2025-05-03 17:16:08] Found pair MRK-ELV with p-value 0.006634 in sector: Healthcare
+[2025-05-03 17:16:08] Found pair AAPL-MU with p-value 0.006662 in sector: Technology
+[2025-05-03 17:16:08] Found pair JNJ-REGN with p-value 0.007270 in sector: Healthcare
+[2025-05-03 17:16:08] Found pair NVDA-ADI with p-value 0.007398 in industry: Semiconductors
+[2025-05-03 17:16:08] Found pair JNJ-DHR with p-value 0.007521 in sector: Healthcare
+[2025-05-03 17:16:08] Found pair MDT-REGN with p-value 0.008885 in sector: Healthcare
+[2025-05-03 17:16:08] Found pair AAPL-ADI with p-value 0.009608 in sector: Technology
+[2025-05-03 17:16:08] Found pair ISRG-ELV with p-value 0.009692 in sector: Healthcare
+[2025-05-03 17:16:08] Found pair BAC-C with p-value 0.011977 in industry: Banks - Diversified
+[2025-05-03 17:16:08] Found pair MRK-HCA with p-value 0.012334 in sector: Healthcare
+[2025-05-03 17:16:08] Found pair NVDA-ORCL with p-value 0.013532 in sector: Technology
+[2025-05-03 17:16:08] Found pair ABT-ELV with p-value 0.013554 in sector: Healthcare
+[2025-05-03 17:16:08] Found pair DIS-CMCSA with p-value 0.013823 in sector: Communication Services
+[2025-05-03 17:16:08] Found pair VZ-CMCSA with p-value 0.013836 in industry: Telecom Services
+[2025-05-03 17:16:08] Found 20 cointegrated pairs out of 46 tested pairs.
+[2025-05-03 17:16:09] Pair ADBE-ACN: Hedge Ratio = 0.5472, Z-Score = 0.1993
+[2025-05-03 17:16:09] Pair CSCO-TXN: Hedge Ratio = 5.2154, Z-Score = -1.2197
+[2025-05-03 17:16:09] Pair CSCO-MU: Hedge Ratio = 3.6130, Z-Score = -0.7184
+[2025-05-03 17:16:09] Pair CRM-ORCL: Hedge Ratio = 0.6478, Z-Score = 1.6426
+[2025-05-03 17:16:09] Pair NVDA-MU: Hedge Ratio = 1.3966, Z-Score = -1.3283
+[2025-05-03 17:16:09] Pair AAPL-ACN: Hedge Ratio = 1.0938, Z-Score = 0.6828
+[2025-05-03 17:16:10] Pair MRK-ELV: Hedge Ratio = -0.5189, Z-Score = -1.2914
+[2025-05-03 17:16:10] Pair AAPL-MU: Hedge Ratio = 0.5995, Z-Score = 0.0855
+[2025-05-03 17:16:10] Pair JNJ-REGN: Hedge Ratio = 8.7914, Z-Score = 0.2467
+[2025-05-03 17:16:10] Pair NVDA-ADI: Hedge Ratio = 1.8342, Z-Score = -0.5984
+[2025-05-03 17:16:10] Pair JNJ-DHR: Hedge Ratio = 1.6367, Z-Score = 0.6266
+[2025-05-03 17:16:10] Pair MDT-REGN: Hedge Ratio = 12.7560, Z-Score = 0.7868
+[2025-05-03 17:16:10] Pair AAPL-ADI: Hedge Ratio = 1.0639, Z-Score = 1.1541
+[2025-05-03 17:16:11] Pair ISRG-ELV: Hedge Ratio = -0.2671, Z-Score = -0.5486
+[2025-05-03 17:16:11] Pair BAC-C: Hedge Ratio = 1.7667, Z-Score = 0.9032
+[2025-05-03 17:16:11] Pair MRK-HCA: Hedge Ratio = -0.4701, Z-Score = 1.4449
+[2025-05-03 17:16:11] Pair NVDA-ORCL: Hedge Ratio = 1.2120, Z-Score = 0.7098
+[2025-05-03 17:16:11] Pair ABT-ELV: Hedge Ratio = -2.1832, Z-Score = -0.6558
+[2025-05-03 17:16:11] Pair DIS-CMCSA: Hedge Ratio = 0.1253, Z-Score = -0.4567
+[2025-05-03 17:16:12] Pair VZ-CMCSA: Hedge Ratio = 0.5810, Z-Score = -0.7289
+[2025-05-03 17:16:12] Saved plot for ADBE-ACN to pair_visualizations\ADBE_ACN_visualization.png
+[2025-05-03 17:16:12] Saved plot for CSCO-TXN to pair_visualizations\CSCO_TXN_visualization.png
+[2025-05-03 17:16:12] Saved plot for CSCO-MU to pair_visualizations\CSCO_MU_visualization.png
+[2025-05-03 17:16:13] Saved plot for CRM-ORCL to pair_visualizations\CRM_ORCL_visualization.png
+[2025-05-03 17:16:13] Saved plot for NVDA-MU to pair_visualizations\NVDA_MU_visualization.png
+[2025-05-03 17:16:13] Saved plot for AAPL-ACN to pair_visualizations\AAPL_ACN_visualization.png
+[2025-05-03 17:16:13] Saved plot for MRK-ELV to pair_visualizations\MRK_ELV_visualization.png
+[2025-05-03 17:16:14] Saved plot for AAPL-MU to pair_visualizations\AAPL_MU_visualization.png
+[2025-05-03 17:16:14] Saved plot for JNJ-REGN to pair_visualizations\JNJ_REGN_visualization.png
+[2025-05-03 17:16:14] Saved plot for NVDA-ADI to pair_visualizations\NVDA_ADI_visualization.png
+[2025-05-03 17:16:15] Saved plot for JNJ-DHR to pair_visualizations\JNJ_DHR_visualization.png
+[2025-05-03 17:16:15] Saved plot for MDT-REGN to pair_visualizations\MDT_REGN_visualization.png
+[2025-05-03 17:16:15] Saved plot for AAPL-ADI to pair_visualizations\AAPL_ADI_visualization.png
+[2025-05-03 17:16:15] Saved plot for ISRG-ELV to pair_visualizations\ISRG_ELV_visualization.png
+[2025-05-03 17:16:16] Saved plot for BAC-C to pair_visualizations\BAC_C_visualization.png
+[2025-05-03 17:16:16] Saved plot for MRK-HCA to pair_visualizations\MRK_HCA_visualization.png
+[2025-05-03 17:16:16] Saved plot for NVDA-ORCL to pair_visualizations\NVDA_ORCL_visualization.png
+[2025-05-03 17:16:17] Saved plot for ABT-ELV to pair_visualizations\ABT_ELV_visualization.png
+[2025-05-03 17:16:17] Saved plot for DIS-CMCSA to pair_visualizations\DIS_CMCSA_visualization.png
+[2025-05-03 17:16:17] Saved plot for VZ-CMCSA to pair_visualizations\VZ_CMCSA_visualization.png
+Pairs Trading Bot Initialized at 2025-05-03 17:16:42.712039
+Parameters: Lookback=60, Z-Score=2.0, Max Pairs=5, Position Size=5.0%
+
+[2025-05-03 17:16:42] Finding cointegrated pairs from 73 stocks...
+[2025-05-03 17:16:49] Available stocks in price_data: ['AAPL', 'MSFT', 'AMZN', 'GOOGL', 'META', 'TSLA', 'NVDA', 'JPM', 'JNJ', 'V', 'PG', 'UNH', 'HD', 'MA', 'BAC', 'DIS', 'ADBE', 'CRM', 'NFLX', 'PYPL', 'INTC', 'VZ', 'CMCSA', 'PEP', 'ABT', 'KO', 'MRK', 'PFE', 'WMT', 'T', 'CSCO', 'CVX', 'XOM', 'NKE', 'ABBV', 'TMO', 'AVGO', 'MCD', 'ACN', 'COST', 'DHR', 'LLY', 'MDT', 'TXN', 'QCOM', 'BMY', 'UNP', 'NEE', 'MS', 'C', 'ORCL', 'IBM', 'AMD', 'INTU', 'NOW', 'APH', 'ADI', 'SNPS', 'CDNS', 'KLAC', 'MU', 'ISRG', 'SYK', 'BSX', 'GILD', 'VRTX', 'REGN', 'ZTS', 'MCK', 'ELV', 'CI', 'CVS', 'HCA']
+[2025-05-03 17:16:49] Using sector/industry analysis to find pairs...
+[2025-05-03 17:17:00] Found pair ADBE-ACN with p-value 0.000540 in sector: Technology
+[2025-05-03 17:17:00] Found pair CSCO-TXN with p-value 0.001341 in sector: Technology
+[2025-05-03 17:17:00] Found pair CSCO-MU with p-value 0.003444 in sector: Technology
+[2025-05-03 17:17:00] Found pair CRM-ORCL with p-value 0.004209 in sector: Technology
+[2025-05-03 17:17:00] Found pair NVDA-MU with p-value 0.004405 in industry: Semiconductors
+[2025-05-03 17:17:00] Found pair AAPL-ACN with p-value 0.006311 in sector: Technology
+[2025-05-03 17:17:00] Found pair MRK-ELV with p-value 0.006634 in sector: Healthcare
+[2025-05-03 17:17:00] Found pair AAPL-MU with p-value 0.006662 in sector: Technology
+[2025-05-03 17:17:00] Found pair JNJ-REGN with p-value 0.007270 in sector: Healthcare
+[2025-05-03 17:17:00] Found pair NVDA-ADI with p-value 0.007398 in industry: Semiconductors
+[2025-05-03 17:17:00] Found pair JNJ-DHR with p-value 0.007521 in sector: Healthcare
+[2025-05-03 17:17:00] Found pair MDT-REGN with p-value 0.008885 in sector: Healthcare
+[2025-05-03 17:17:00] Found pair AAPL-ADI with p-value 0.009608 in sector: Technology
+[2025-05-03 17:17:00] Found pair ISRG-ELV with p-value 0.009692 in sector: Healthcare
+[2025-05-03 17:17:00] Found pair BAC-C with p-value 0.011977 in industry: Banks - Diversified
+[2025-05-03 17:17:00] Found pair MRK-HCA with p-value 0.012334 in sector: Healthcare
+[2025-05-03 17:17:00] Found pair NVDA-ORCL with p-value 0.013532 in sector: Technology
+[2025-05-03 17:17:00] Found pair ABT-ELV with p-value 0.013554 in sector: Healthcare
+[2025-05-03 17:17:00] Found pair DIS-CMCSA with p-value 0.013823 in sector: Communication Services
+[2025-05-03 17:17:00] Found pair VZ-CMCSA with p-value 0.013836 in industry: Telecom Services
+[2025-05-03 17:17:00] Found 20 cointegrated pairs out of 46 tested pairs.
+[2025-05-03 17:17:00] Pair ADBE-ACN: Hedge Ratio = 0.5472, Z-Score = 0.1993
+[2025-05-03 17:17:00] Pair CSCO-TXN: Hedge Ratio = 5.2154, Z-Score = -1.2197
+[2025-05-03 17:17:01] Pair CSCO-MU: Hedge Ratio = 3.6130, Z-Score = -0.7184
+[2025-05-03 17:17:01] Pair CRM-ORCL: Hedge Ratio = 0.6478, Z-Score = 1.6426
+[2025-05-03 17:17:01] Pair NVDA-MU: Hedge Ratio = 1.3966, Z-Score = -1.3283
+[2025-05-03 17:17:01] Pair AAPL-ACN: Hedge Ratio = 1.0938, Z-Score = 0.6828
+[2025-05-03 17:17:01] Pair MRK-ELV: Hedge Ratio = -0.5189, Z-Score = -1.2914
+[2025-05-03 17:17:01] Pair AAPL-MU: Hedge Ratio = 0.5995, Z-Score = 0.0855
+[2025-05-03 17:17:01] Pair JNJ-REGN: Hedge Ratio = 8.7914, Z-Score = 0.2467
+[2025-05-03 17:17:02] Pair NVDA-ADI: Hedge Ratio = 1.8342, Z-Score = -0.5984
+[2025-05-03 17:17:02] Pair JNJ-DHR: Hedge Ratio = 1.6367, Z-Score = 0.6266
+[2025-05-03 17:17:02] Pair MDT-REGN: Hedge Ratio = 12.7560, Z-Score = 0.7868
+[2025-05-03 17:17:02] Pair AAPL-ADI: Hedge Ratio = 1.0639, Z-Score = 1.1541
+[2025-05-03 17:17:02] Pair ISRG-ELV: Hedge Ratio = -0.2671, Z-Score = -0.5486
+[2025-05-03 17:17:02] Pair BAC-C: Hedge Ratio = 1.7667, Z-Score = 0.9032
+[2025-05-03 17:17:02] Pair MRK-HCA: Hedge Ratio = -0.4701, Z-Score = 1.4449
+[2025-05-03 17:17:02] Pair NVDA-ORCL: Hedge Ratio = 1.2120, Z-Score = 0.7098
+[2025-05-03 17:17:02] Pair ABT-ELV: Hedge Ratio = -2.1832, Z-Score = -0.6558
+[2025-05-03 17:17:03] Pair DIS-CMCSA: Hedge Ratio = 0.1253, Z-Score = -0.4567
+[2025-05-03 17:17:03] Pair VZ-CMCSA: Hedge Ratio = 0.5810, Z-Score = -0.7289
+[2025-05-03 17:17:03] Saved plot for ADBE-ACN to pair_visualizations\ADBE_ACN_visualization.png
+[2025-05-03 17:17:03] Saved plot for CSCO-TXN to pair_visualizations\CSCO_TXN_visualization.png
+[2025-05-03 17:17:03] Saved plot for CSCO-MU to pair_visualizations\CSCO_MU_visualization.png
+[2025-05-03 17:17:04] Saved plot for CRM-ORCL to pair_visualizations\CRM_ORCL_visualization.png
+[2025-05-03 17:17:04] Saved plot for NVDA-MU to pair_visualizations\NVDA_MU_visualization.png
+[2025-05-03 17:17:04] Saved plot for AAPL-ACN to pair_visualizations\AAPL_ACN_visualization.png
+[2025-05-03 17:17:04] Saved plot for MRK-ELV to pair_visualizations\MRK_ELV_visualization.png
+[2025-05-03 17:17:05] Saved plot for AAPL-MU to pair_visualizations\AAPL_MU_visualization.png
+[2025-05-03 17:17:05] Saved plot for JNJ-REGN to pair_visualizations\JNJ_REGN_visualization.png
+[2025-05-03 17:17:05] Saved plot for NVDA-ADI to pair_visualizations\NVDA_ADI_visualization.png
+[2025-05-03 17:17:06] Saved plot for JNJ-DHR to pair_visualizations\JNJ_DHR_visualization.png
+[2025-05-03 17:17:06] Saved plot for MDT-REGN to pair_visualizations\MDT_REGN_visualization.png
+[2025-05-03 17:17:06] Saved plot for AAPL-ADI to pair_visualizations\AAPL_ADI_visualization.png
+[2025-05-03 17:17:07] Saved plot for ISRG-ELV to pair_visualizations\ISRG_ELV_visualization.png
+[2025-05-03 17:17:07] Saved plot for BAC-C to pair_visualizations\BAC_C_visualization.png
+[2025-05-03 17:17:07] Saved plot for MRK-HCA to pair_visualizations\MRK_HCA_visualization.png
+[2025-05-03 17:17:07] Saved plot for NVDA-ORCL to pair_visualizations\NVDA_ORCL_visualization.png
+[2025-05-03 17:17:08] Saved plot for ABT-ELV to pair_visualizations\ABT_ELV_visualization.png
+[2025-05-03 17:17:08] Saved plot for DIS-CMCSA to pair_visualizations\DIS_CMCSA_visualization.png
+[2025-05-03 17:17:08] Saved plot for VZ-CMCSA to pair_visualizations\VZ_CMCSA_visualization.png
+[2025-05-03 17:17:09] Backtest complete for top pair ADBE-ACN
+[2025-05-03 17:17:09] Final capital: $1155605.92
+[2025-05-03 17:17:09] Total return: 1055.61%
+Pairs Trading Bot Initialized at 2025-05-03 17:17:50.269971
+Parameters: Lookback=60, Z-Score=2.0, Max Pairs=5, Position Size=5.0%
+
+[2025-05-03 17:17:50] Finding cointegrated pairs from 73 stocks...
+[2025-05-03 17:17:56] Available stocks in price_data: ['AAPL', 'MSFT', 'AMZN', 'GOOGL', 'META', 'TSLA', 'NVDA', 'JPM', 'JNJ', 'V', 'PG', 'UNH', 'HD', 'MA', 'BAC', 'DIS', 'ADBE', 'CRM', 'NFLX', 'PYPL', 'INTC', 'VZ', 'CMCSA', 'PEP', 'ABT', 'KO', 'MRK', 'PFE', 'WMT', 'T', 'CSCO', 'CVX', 'XOM', 'NKE', 'ABBV', 'TMO', 'AVGO', 'MCD', 'ACN', 'COST', 'DHR', 'LLY', 'MDT', 'TXN', 'QCOM', 'BMY', 'UNP', 'NEE', 'MS', 'C', 'ORCL', 'IBM', 'AMD', 'INTU', 'NOW', 'APH', 'ADI', 'SNPS', 'CDNS', 'KLAC', 'MU', 'ISRG', 'SYK', 'BSX', 'GILD', 'VRTX', 'REGN', 'ZTS', 'MCK', 'ELV', 'CI', 'CVS', 'HCA']
+[2025-05-03 17:17:56] Using sector/industry analysis to find pairs...
+[2025-05-03 17:18:09] Found pair ADBE-ACN with p-value 0.000540 in sector: Technology
+[2025-05-03 17:18:09] Found pair CSCO-TXN with p-value 0.001341 in sector: Technology
+[2025-05-03 17:18:09] Found pair CSCO-MU with p-value 0.003444 in sector: Technology
+[2025-05-03 17:18:09] Found pair CRM-ORCL with p-value 0.004209 in sector: Technology
+[2025-05-03 17:18:09] Found pair NVDA-MU with p-value 0.004405 in industry: Semiconductors
+[2025-05-03 17:18:09] Found pair AAPL-ACN with p-value 0.006311 in sector: Technology
+[2025-05-03 17:18:09] Found pair MRK-ELV with p-value 0.006634 in sector: Healthcare
+[2025-05-03 17:18:09] Found pair AAPL-MU with p-value 0.006662 in sector: Technology
+[2025-05-03 17:18:09] Found pair JNJ-REGN with p-value 0.007270 in sector: Healthcare
+[2025-05-03 17:18:09] Found pair NVDA-ADI with p-value 0.007398 in industry: Semiconductors
+[2025-05-03 17:18:09] Found pair JNJ-DHR with p-value 0.007521 in sector: Healthcare
+[2025-05-03 17:18:09] Found pair MDT-REGN with p-value 0.008885 in sector: Healthcare
+[2025-05-03 17:18:09] Found pair AAPL-ADI with p-value 0.009608 in sector: Technology
+[2025-05-03 17:18:09] Found pair ISRG-ELV with p-value 0.009692 in sector: Healthcare
+[2025-05-03 17:18:09] Found pair BAC-C with p-value 0.011977 in industry: Banks - Diversified
+[2025-05-03 17:18:09] Found pair MRK-HCA with p-value 0.012334 in sector: Healthcare
+[2025-05-03 17:18:09] Found pair NVDA-ORCL with p-value 0.013532 in sector: Technology
+[2025-05-03 17:18:09] Found pair ABT-ELV with p-value 0.013554 in sector: Healthcare
+[2025-05-03 17:18:09] Found pair DIS-CMCSA with p-value 0.013823 in sector: Communication Services
+[2025-05-03 17:18:09] Found pair VZ-CMCSA with p-value 0.013836 in industry: Telecom Services
+[2025-05-03 17:18:09] Found 20 cointegrated pairs out of 46 tested pairs.
+[2025-05-03 17:18:09] Pair ADBE-ACN: Hedge Ratio = 0.5472, Z-Score = 0.1993
+[2025-05-03 17:18:10] Pair CSCO-TXN: Hedge Ratio = 5.2154, Z-Score = -1.2197
+[2025-05-03 17:18:10] Pair CSCO-MU: Hedge Ratio = 3.6130, Z-Score = -0.7184
+[2025-05-03 17:18:10] Pair CRM-ORCL: Hedge Ratio = 0.6478, Z-Score = 1.6426
+[2025-05-03 17:18:10] Pair NVDA-MU: Hedge Ratio = 1.3966, Z-Score = -1.3283
+[2025-05-03 17:18:10] Pair AAPL-ACN: Hedge Ratio = 1.0938, Z-Score = 0.6828
+[2025-05-03 17:18:11] Pair MRK-ELV: Hedge Ratio = -0.5189, Z-Score = -1.2914
+[2025-05-03 17:18:11] Pair AAPL-MU: Hedge Ratio = 0.5995, Z-Score = 0.0855
+[2025-05-03 17:18:11] Pair JNJ-REGN: Hedge Ratio = 8.7914, Z-Score = 0.2467
+[2025-05-03 17:18:11] Pair NVDA-ADI: Hedge Ratio = 1.8342, Z-Score = -0.5984
+[2025-05-03 17:18:11] Pair JNJ-DHR: Hedge Ratio = 1.6367, Z-Score = 0.6266
+[2025-05-03 17:18:11] Pair MDT-REGN: Hedge Ratio = 12.7560, Z-Score = 0.7868
+[2025-05-03 17:18:11] Pair AAPL-ADI: Hedge Ratio = 1.0639, Z-Score = 1.1541
+[2025-05-03 17:18:11] Pair ISRG-ELV: Hedge Ratio = -0.2671, Z-Score = -0.5486
+[2025-05-03 17:18:12] Pair BAC-C: Hedge Ratio = 1.7667, Z-Score = 0.9032
+[2025-05-03 17:18:12] Pair MRK-HCA: Hedge Ratio = -0.4701, Z-Score = 1.4449
+[2025-05-03 17:18:12] Pair NVDA-ORCL: Hedge Ratio = 1.2120, Z-Score = 0.7098
+[2025-05-03 17:18:12] Pair ABT-ELV: Hedge Ratio = -2.1832, Z-Score = -0.6558
+[2025-05-03 17:18:12] Pair DIS-CMCSA: Hedge Ratio = 0.1253, Z-Score = -0.4567
+[2025-05-03 17:18:12] Pair VZ-CMCSA: Hedge Ratio = 0.5810, Z-Score = -0.7289
+[2025-05-03 17:18:12] Saved plot for ADBE-ACN to pair_visualizations\ADBE_ACN_visualization.png
+[2025-05-03 17:18:13] Saved plot for CSCO-TXN to pair_visualizations\CSCO_TXN_visualization.png
+[2025-05-03 17:18:13] Saved plot for CSCO-MU to pair_visualizations\CSCO_MU_visualization.png
+[2025-05-03 17:18:13] Saved plot for CRM-ORCL to pair_visualizations\CRM_ORCL_visualization.png
+[2025-05-03 17:18:14] Saved plot for NVDA-MU to pair_visualizations\NVDA_MU_visualization.png
+[2025-05-03 17:18:14] Saved plot for AAPL-ACN to pair_visualizations\AAPL_ACN_visualization.png
+[2025-05-03 17:18:14] Saved plot for MRK-ELV to pair_visualizations\MRK_ELV_visualization.png
+[2025-05-03 17:18:14] Saved plot for AAPL-MU to pair_visualizations\AAPL_MU_visualization.png
+[2025-05-03 17:18:15] Saved plot for JNJ-REGN to pair_visualizations\JNJ_REGN_visualization.png
+[2025-05-03 17:18:15] Saved plot for NVDA-ADI to pair_visualizations\NVDA_ADI_visualization.png
+[2025-05-03 17:18:15] Saved plot for JNJ-DHR to pair_visualizations\JNJ_DHR_visualization.png
+[2025-05-03 17:18:16] Saved plot for MDT-REGN to pair_visualizations\MDT_REGN_visualization.png
+[2025-05-03 17:18:16] Saved plot for AAPL-ADI to pair_visualizations\AAPL_ADI_visualization.png
+[2025-05-03 17:18:16] Saved plot for ISRG-ELV to pair_visualizations\ISRG_ELV_visualization.png
+[2025-05-03 17:18:16] Saved plot for BAC-C to pair_visualizations\BAC_C_visualization.png
+[2025-05-03 17:18:17] Saved plot for MRK-HCA to pair_visualizations\MRK_HCA_visualization.png
+[2025-05-03 17:18:17] Saved plot for NVDA-ORCL to pair_visualizations\NVDA_ORCL_visualization.png
+[2025-05-03 17:18:17] Saved plot for ABT-ELV to pair_visualizations\ABT_ELV_visualization.png
+[2025-05-03 17:18:17] Saved plot for DIS-CMCSA to pair_visualizations\DIS_CMCSA_visualization.png
+[2025-05-03 17:18:18] Saved plot for VZ-CMCSA to pair_visualizations\VZ_CMCSA_visualization.png
+[2025-05-03 17:18:18] Backtest complete for top pair ADBE-ACN
+[2025-05-03 17:18:18] Final capital: $1155605.92
+[2025-05-03 17:18:18] Total return: 1055.61%
